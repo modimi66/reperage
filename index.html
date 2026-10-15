@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Repérage">
+<meta name="theme-color" content="#0F1428">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Repérage mapping et son et lumière</title>
+<style>
+:root{
+  --bg:#0F1428;--surface:#161D38;--surface2:#1E2748;--line:#2C3763;
+  --text:#ECE6D8;--muted:#9BA2BD;--accent:#F0B44C;--accent-ink:#1A1405;
+  --ok:#6FC2A0;--warn:#E8C25A;--bad:#E5675A;--cyan:#7FD6FF;
+  --f:"Avenir Next","Avenir","Segoe UI",system-ui,sans-serif;
+  --fc:"Avenir Next Condensed","Avenir Next","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+:root[data-theme="day"]{
+  --bg:#E4E2DC;--surface:#F6F5F1;--surface2:#ECEAE4;--line:#C9C5BB;
+  --text:#1B2140;--muted:#5E6378;--accent:#A8670F;--accent-ink:#fff;
+  --ok:#1F7A55;--warn:#8A6400;--bad:#B3392C;--cyan:#1C6E94;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--f);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#app{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh;padding-top:env(safe-area-inset-top,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+#top{grid-column:1/3;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+#top h1{font-family:var(--fc);font-weight:600;font-size:1.55rem;margin:0;line-height:1.1}
+#top p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
+.topact{display:flex;align-items:center;gap:12px;font-size:.82rem;color:var(--muted)}
+#tabs{grid-row:2;display:flex;flex-direction:column;gap:2px;padding:12px 8px;border-right:1px solid var(--line);position:sticky;top:66px;align-self:start;height:calc(100vh - 66px)}
+#tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:10px;border:0;background:transparent;color:var(--muted);font:600 .8rem var(--f)}
+#tabs button i{font-style:normal;font-family:var(--fc);font-size:1.3rem;line-height:1}
+#tabs button.on{background:var(--surface2);color:var(--accent)}
+main{padding:24px 28px 130px;width:100%;max-width:1120px}
+@media (max-width:820px){
+  #app{grid-template-columns:minmax(0,1fr)}
+  #tabs{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-top:1px solid var(--line);background:var(--bg);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));z-index:6}
+  #tabs button{min-width:74px}
+  main{padding:18px 16px 130px}
+}
+.tab{display:none}.tab.on{display:block}
+h2{font-family:var(--fc);font-weight:600;font-size:2rem;margin:0 0 4px;line-height:1.1}
+h3{font-family:var(--fc);font-weight:600;font-size:1.3rem;margin:0 0 12px}
+h4{font-size:1rem;margin:18px 0 8px}
+.lead{color:var(--muted);margin:0 0 22px;max-width:68ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px}
+.panel>p.hint,.hint{color:var(--muted);font-size:.88rem;margin:6px 0 12px;max-width:72ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.grid.wide{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+label{display:flex;flex-direction:column;gap:6px;font-size:.86rem;color:var(--muted)}
+label.full{grid-column:1/-1}
+input,select,textarea{font:inherit;font-size:16px;color:var(--text);background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+textarea{min-height:90px;resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:600 1rem var(--f);padding:11px 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);color:var(--text);min-height:46px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:.88rem}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:7px 12px;font:600 .82rem var(--f)}
+.filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center}
+.filebtn input{position:absolute;inset:0;opacity:0;font-size:200px;cursor:pointer}
+.empty{color:var(--muted);padding:26px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+.pcard{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:10px}
+.pcard.cur{border-color:var(--accent)}
+.pcard h3{margin:0}
+.pcard p{margin:2px 0;color:var(--muted)}
+.meta{font-size:.82rem}
+details{margin-top:8px}
+summary{cursor:pointer;font-weight:600}
+details p,details li{color:var(--muted);font-size:.92rem;max-width:72ch}
+/* readouts */
+.readouts{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:14px 0}
+.ro{background:var(--surface);padding:13px 15px;box-shadow:1px 0 0 var(--line),0 1px 0 var(--line)}
+.ro b{display:block;font-family:var(--fc);font-size:1.9rem;font-weight:600;line-height:1.1}
+.ro span{font-size:.8rem;color:var(--muted)}
+.ro.hl b{color:var(--accent)}
+.note{font-size:.88rem;color:var(--muted)}
+/* twilight band */
+.bandwrap{margin:34px 0 44px;position:relative}
+.band{position:relative;height:58px;border-radius:10px}
+.mk{position:absolute;top:-8px;bottom:-8px;width:2px;background:var(--text)}
+.mk.start{background:var(--accent);width:4px}
+.mk em{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:.74rem;font-style:normal;color:var(--text)}
+.mk.lo em{bottom:auto;top:calc(100% + 2px)}
+.mk.start em{color:var(--accent);font-weight:700}
+.hours{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:26px}
+/* photos */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.ph{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-align:left;padding:0;color:var(--text);font:inherit}
+.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#000}
+.ph div{padding:8px 10px;font-size:.84rem}
+.ph small{color:var(--muted);display:block}
+.badge{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--accent);margin-bottom:4px}
+/* modal editor */
+#modal{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+#modal[hidden]{display:none}
+.edbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.edbody{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
+@media (max-width:900px){.edbody{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}}
+.cvwrap{overflow:auto;display:flex;align-items:center;justify-content:center;background:#05070f;padding:8px}
+#cv{max-width:100%;max-height:100%;touch-action:none;display:block}
+.edside{border-left:1px solid var(--line);padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mode button{border:0;background:transparent;color:var(--muted);padding:10px 14px;font:600 .9rem var(--f);border-right:1px solid var(--line)}
+.mode button:last-child{border-right:0}
+.mode button.on{background:var(--accent);color:var(--accent-ink)}
+.mlist{display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+.mlist div{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.mlist span{flex:1;min-width:0}.mlist select{width:140px;padding:6px 8px;font-size:14px}
+/* mesures */
+.viseur{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;max-height:360px;margin:10px 0}
+.viseur video{width:100%;height:100%;object-fit:cover;display:block}
+.viseur::before,.viseur::after{content:"";position:absolute;background:var(--accent);left:50%;top:50%;transform:translate(-50%,-50%)}
+.viseur::before{width:70px;height:2px}.viseur::after{width:2px;height:70px}
+.viseur span{position:absolute;left:12px;top:10px;color:#fff;font-weight:600;text-shadow:0 1px 3px #000}
+.live{font-family:var(--fc);font-size:2.6rem;font-weight:600;line-height:1}
+.live small{font-size:1rem;color:var(--muted);font-family:var(--f)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--muted);font-weight:600;font-size:.8rem}
+td select{padding:6px 8px;font-size:14px}
+/* decision */
+.ck{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.ck .lbl{font-size:.95rem}
+.ck .lbl small{color:var(--muted)}
+.ck input{grid-column:1/-1;padding:8px 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{padding:8px 10px;background:transparent;border:0;border-right:1px solid var(--line);color:var(--muted);font:600 .8rem var(--f)}
+.seg button:last-child{border-right:0}
+.seg button.on[data-v="ok"]{background:var(--ok);color:#04140D}
+.seg button.on[data-v="at"]{background:var(--warn);color:#1E1600}
+.seg button.on[data-v="bl"]{background:var(--bad);color:#fff}
+.seg button.on[data-v="na"]{background:var(--surface2);color:var(--text)}
+@media (max-width:640px){.ck{grid-template-columns:1fr}}
+.verdict{border-left:6px solid var(--muted);padding:14px 18px;background:var(--surface);border-radius:0 14px 14px 0;margin-bottom:18px}
+.verdict b{font-family:var(--fc);font-size:1.8rem;font-weight:600;display:block}
+.gauge{height:10px;border-radius:5px;background:var(--surface2);overflow:hidden;margin:10px 0 4px}
+.gauge div{height:100%}
+.alerts{list-style:none;padding:0;margin:0}
+.alerts li{padding:8px 0 8px 14px;border-left:3px solid var(--muted);margin-bottom:6px;font-size:.92rem}
+.alerts li.bad{border-color:var(--bad)}.alerts li.warn{border-color:var(--warn)}.alerts li.info{border-color:var(--cyan)}
+/* art */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.chip{padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:500 .92rem var(--f)}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.prop h3.title{font-size:2.2rem;margin:0}
+.prop .pitch{font-size:1.05rem;max-width:68ch}
+.sw{display:flex;gap:8px;margin:8px 0 4px}
+.sw div{flex:1;min-width:0}
+.sw i{display:block;height:52px;border-radius:8px;border:1px solid var(--line)}
+.sw span{font-size:.75rem;color:var(--muted);display:block;margin-top:4px}
+.seq{display:grid;grid-template-columns:84px minmax(0,1fr);gap:4px 14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.seq .tc{font-family:var(--fc);font-weight:600;color:var(--accent);font-size:1.05rem}
+.seq p{margin:2px 0;font-size:.92rem}
+.seq .fx{color:var(--muted)}
+ul.plain{padding-left:18px;margin:6px 0}
+ul.plain li{margin:4px 0;font-size:.93rem}
+#toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);background:var(--text);color:var(--bg);padding:11px 18px;border-radius:12px;font-weight:600;font-size:.92rem;opacity:0;pointer-events:none;transition:.25s;z-index:40;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+#printArea{display:none}
+@media print{
+  #app,#modal,#toast{display:none!important}
+  body{background:#fff;color:#111}
+  #printArea{display:block!important;font-family:var(--f);color:#111;font-size:11pt}
+  #printArea h1{font-family:var(--fc);font-size:22pt;margin:0 0 4pt}
+  #printArea h2{font-family:var(--fc);font-size:15pt;margin:16pt 0 6pt;border-bottom:1px solid #999;padding-bottom:3pt}
+  #printArea table{font-size:9.5pt}
+  #printArea th,#printArea td{border-bottom:1px solid #ccc;padding:4pt}
+  #printArea .pp{display:grid;grid-template-columns:1fr 1fr;gap:10pt}
+  #printArea .pp figure{margin:0;break-inside:avoid}
+  #printArea .pp img{width:100%}
+  #printArea figcaption{font-size:9pt;color:#444}
+  #printArea .sw i{height:30px;border:1px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #printArea section{break-inside:auto}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div><h1 id="pName">Aucun repérage ouvert</h1><p id="pSub">Créez ou ouvrez un repérage</p></div>
+    <div class="topact"><span id="saveState"></span><button class="ghost" id="themeBtn">Mode jour</button></div>
+  </header>
+
+  <nav id="tabs" aria-label="Étapes">
+    <button data-tab="projets" class="on"><i>☰</i>Projets</button>
+    <button data-tab="site"><i>1</i>Site</button>
+    <button data-tab="reperage"><i>2</i>Repérage</button>
+    <button data-tab="mesures"><i>3</i>Mesures</button>
+    <button data-tab="calculs"><i>4</i>Calculs</button>
+    <button data-tab="decision"><i>5</i>Décision</button>
+    <button data-tab="artistique"><i>6</i>Artistique</button>
+    <button data-tab="rapport"><i>7</i>Rapport</button>
+  </nav>
+
+  <main>
+  <!-- PROJETS -->
+  <section class="tab on" id="t-projets">
+    <h2>Repérages</h2>
+    <p class="lead">Un repérage par site. Tout est enregistré sur cet iPad au fil de la saisie, même sans réseau. Exportez chaque projet pour le sauvegarder ou le transférer.</p>
+    <div class="row" style="margin-bottom:18px">
+      <button class="btn primary" id="newBtn">Nouveau repérage</button>
+      <span class="btn filebtn">Importer un projet (.json)<input type="file" id="importJson" accept=".json,application/json"></span>
+    </div>
+    <div id="plist"></div>
+    <div class="panel" style="margin-top:22px">
+      <h3>Installation et usage hors ligne</h3>
+      <p class="hint">Pour disposer de la caméra en direct, des capteurs (inclinomètre, boussole), du micro et du GPS, l’outil doit être ouvert depuis une adresse https.</p>
+      <details><summary>Installer sur l’iPad (Safari ou Chrome)</summary>
+        <ol>
+          <li>Déposez le dossier de l’outil sur un hébergement https (Web Station du NAS avec certificat, GitHub Pages, Netlify…).</li>
+          <li>Ouvrez l’adresse une fois, avec du réseau, dans Safari ou dans Chrome.</li>
+          <li>Safari : Partager › Sur l’écran d’accueil. Chrome : icône Partager (en haut à droite de la barre d’adresse) › Ajouter à l’écran d’accueil (iPadOS 16.4 ou plus récent).</li>
+          <li>Lancez ensuite l’outil depuis son icône : il fonctionne sans connexion.</li>
+        </ol>
+        <p>Safari et Chrome ont chacun leur propre stockage : un repérage saisi dans l’un n’apparaît pas dans l’autre. Pour passer de l’un à l’autre, exportez le projet en JSON puis importez-le. Utilisez toujours l’icône de l’écran d’accueil et exportez les projets terminés : le navigateur peut effacer les données d’un site non installé après quelques jours sans visite.</p>
+      </details>
+      <p class="note" id="envInfo"></p>
+    </div>
+  </section>
+
+  <!-- SITE -->
+  <section class="tab" id="t-site">
+    <h2>Site et commande</h2>
+    <p class="lead">Les informations de base qui alimentent les calculs, la grille de décision et la proposition artistique.</p>
+    <div class="panel"><div class="grid">
+      <label class="full">Nom du repérage<input data-bind="name"></label>
+      <label>Client / commanditaire<input data-bind="site.client"></label>
+      <label>Lieu / monument<input data-bind="site.lieu"></label>
+      <label>Commune<input data-bind="site.commune"></label>
+      <label>Type de prestation<select data-bind="site.type" data-opts="TYPES"></select></label>
+      <label>Statut patrimonial<select data-bind="site.statut" data-opts="STATUT"></select></label>
+      <label>Date de la visite<input type="date" data-bind="site.dateVisite"></label>
+      <label>Date envisagée du spectacle<input type="date" data-bind="site.dateSpectacle"></label>
+      <label>Durée du spectacle (min)<input inputmode="decimal" data-num data-bind="site.duree"></label>
+      <label>Jauge public estimée<input inputmode="numeric" data-num data-bind="site.public"></label>
+      <label>Enveloppe budgétaire<input data-bind="site.budget"></label>
+    </div></div>
+    <div class="panel">
+      <h3>Position et orientation</h3>
+      <div class="grid">
+        <label>Latitude<input inputmode="decimal" data-num data-bind="site.lat"></label>
+        <label>Longitude<input inputmode="decimal" data-num data-bind="site.lon"></label>
+        <label>Orientation de la façade (° depuis le nord)<input inputmode="decimal" data-num data-bind="site.orientation"></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="gpsBtn">Relever ma position</button><span class="note" id="orientTxt"></span></div>
+      <p class="hint">La position sert au calcul de la tombée de la nuit. Sans GPS (iPad Wi-Fi sans puce cellulaire), saisissez les coordonnées relevées sur une carte. L’orientation se relève dans Mesures › Boussole.</p>
+    </div>
+    <div class="panel"><div class="grid">
+      <label class="full">Contacts sur site (mairie, régisseur, électricien, gardien…)<textarea data-bind="site.contacts"></textarea></label>
+      <label class="full">Notes générales<textarea data-bind="site.notes"></textarea></label>
+    </div></div>
+  </section>
+
+  <!-- REPERAGE -->
+  <section class="tab" id="t-reperage">
+    <h2>Repérage photo</h2>
+    <p class="lead">Classez chaque photo par zone. Ouvrez une photo pour la mesurer : tracez un segment de longueur connue (porte, pierre de taille, mire), puis mesurez le reste.</p>
+    <div class="panel">
+      <div class="row">
+        <label style="min-width:240px">Zone des prochaines photos<select id="zoneNew" data-opts="ZONES"></select></label>
+        <span class="btn primary filebtn">Prendre une photo<input type="file" accept="image/*" capture="environment" id="camIn"></span>
+        <span class="btn filebtn">Importer des photos<input type="file" accept="image/*" multiple id="libIn"></span>
+      </div>
+    </div>
+    <div class="row" style="margin-bottom:12px"><label style="min-width:240px">Afficher<select id="zoneFilter"></select></label><span class="note" id="photoCount"></span></div>
+    <div class="pgrid" id="pgrid"></div>
+  </section>
+
+  <!-- MESURES -->
+  <section class="tab" id="t-mesures">
+    <h2>Mesures</h2>
+    <p class="lead">Hauteurs par visée, orientation, bruit ambiant, relevés au télémètre et scans 3D. Chaque mesure peut être envoyée vers les calculs.</p>
+    <div class="row" style="margin-bottom:16px"><button class="btn primary" id="sensBtn">Activer les capteurs</button><span class="note" id="sensState">Capteurs inactifs</span></div>
+
+    <div class="grid wide">
+      <div class="panel">
+        <h3>Hauteur par visée</h3>
+        <p class="hint">Placez-vous à une distance connue du pied de la façade (télémètre). Visez la base puis le sommet avec le réticule, iPad tenu à deux mains.</p>
+        <div class="row"><span class="live" id="elevLive">—<small> °</small></span><button class="btn sm" id="camToggle">Activer la visée caméra</button></div>
+        <div class="viseur" id="viseur" hidden><video id="camV" playsinline muted autoplay></video><span id="elevOnCam"></span></div>
+        <div class="grid" style="margin-top:10px">
+          <label>Distance horizontale (m)<input inputmode="decimal" id="visD"></label>
+          <label>Hauteur des yeux (m)<input inputmode="decimal" id="visEye" value="1,5"></label>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="visBase">Viser la base</button>
+          <button class="btn" id="visTop">Viser le sommet</button>
+          <button class="btn sm ghost" id="visCal">Calibrer l’horizontale</button>
+        </div>
+        <p id="visRes" class="note" style="margin-top:10px"></p>
+        <div class="row"><input id="visLabel" placeholder="Libellé (ex. hauteur façade ouest)" style="flex:1;min-width:180px"><button class="btn primary" id="visSave">Enregistrer</button></div>
+      </div>
+
+      <div class="panel">
+        <h3>Boussole</h3>
+        <p class="hint">Dos de l’iPad face à la façade, perpendiculaire à celle-ci. Éloignez-vous des masses métalliques et des véhicules.</p>
+        <div class="live" id="headLive">—<small> °</small></div>
+        <div class="row" style="margin-top:12px"><button class="btn primary" id="orientBtn">Relever l’orientation de la façade</button></div>
+        <p class="note" id="orientRes"></p>
+      </div>
+
+      <div class="panel">
+        <h3>Bruit ambiant</h3>
+        <p class="hint">Mesure indicative, non pondérée A. Calibrez l’écart une fois avec un sonomètre de référence.</p>
+        <div class="live" id="dbLive">—<small> dB</small></div>
+        <p class="note" id="dbStats">Min — · Max — · Leq —</p>
+        <div class="grid"><label>Écart de calibration (dB)<input inputmode="decimal" id="dbOff" value="105"></label></div>
+        <div class="row" style="margin-top:10px"><button class="btn" id="dbStart">Démarrer</button><button class="btn primary" id="dbSave">Enregistrer le Leq</button></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Relevés</h3>
+      <div class="grid">
+        <label>Libellé<input id="mLabel" placeholder="Largeur façade, distance régie…"></label>
+        <label>Valeur<input id="mVal" inputmode="decimal"></label>
+        <label>Unité<select id="mUnit"><option>m</option><option>m²</option><option>°</option><option>dB</option><option>lux</option><option>kVA</option><option>A</option><option>V</option><option>autre</option></select></label>
+        <label>Envoyer vers<select id="mTarget" data-opts="TARGETS"></select></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn primary" id="mAdd">Ajouter le relevé</button></div>
+      <div style="overflow-x:auto;margin-top:14px"><table><thead><tr><th>Libellé</th><th>Valeur</th><th>Source</th><th>Envoyer vers</th><th></th></tr></thead><tbody id="mBody"></tbody></table></div>
+    </div>
+
+    <div class="panel">
+      <h3>Scans 3D et fichiers</h3>
+      <p class="hint">Safari n’a pas accès au LiDAR. Scannez avec Polycam, Scaniverse ou 3D Scanner App (iPad Pro), exportez en USDZ, OBJ, PLY ou GLB, puis importez ici. Les fichiers USDZ s’ouvrent en réalité augmentée.</p>
+      <span class="btn filebtn">Importer un scan ou un plan<input type="file" id="scanIn" multiple></span>
+      <div style="overflow-x:auto;margin-top:14px"><table><tbody id="scanBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- CALCULS -->
+  <section class="tab" id="t-calculs">
+    <h2>Dimensionnement</h2>
+    <p class="lead">Ordres de grandeur pour décider sur place. À confirmer par une étude de projection (logiciel constructeur) avant devis définitif.</p>
+
+    <div class="panel">
+      <h3>Surface et vidéoprojection</h3>
+      <div class="grid">
+        <label>Largeur de la surface (m)<input inputmode="decimal" data-num data-bind="calc.L"></label>
+        <label>Hauteur de la surface (m)<input inputmode="decimal" data-num data-bind="calc.H"></label>
+        <label>Matériau du support<select data-bind="calc.materiau" data-opts="MAT"></select></label>
+        <label>Lumière ambiante<select data-bind="calc.ambiance" data-opts="AMB"></select></label>
+        <label>Distance de projection (m)<input inputmode="decimal" data-num data-bind="calc.D"></label>
+        <label>Hauteur des projecteurs (m)<input inputmode="decimal" data-num data-bind="calc.hp"></label>
+        <label>Flux par projecteur (lm ISO)<input inputmode="numeric" data-num data-bind="calc.lumens"></label>
+        <label>Résolution native<select data-bind="calc.resol" data-opts="RES"></select></label>
+        <label>Recouvrement de fusion (%)<input inputmode="decimal" data-num data-bind="calc.overlap"></label>
+        <label>Rendement optique et vieillissement<input inputmode="decimal" data-num data-bind="calc.pertes"></label>
+      </div>
+      <div id="vidRes"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Son</h3>
+      <div class="grid">
+        <label>Enceintes → dernier rang (m)<input inputmode="decimal" data-num data-bind="calc.sonD"></label>
+        <label>Bruit ambiant (dB)<input inputmode="decimal" data-num data-bind="calc.bruit"></label>
+      </div>
+      <div id="sonRes"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Énergie</h3>
+      <div class="grid">
+        <label>Consommation vidéo (W par lumen)<input inputmode="decimal" data-num data-bind="calc.wlm"></label>
+        <label>Son, lumière, régie (kW)<input inputmode="decimal" data-num data-bind="calc.autresKw"></label>
+      </div>
+      <div id="nrjRes"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Tombée de la nuit</h3>
+      <div class="grid">
+        <label>Fin autorisée du spectacle<input type="time" data-bind="calc.fin"></label>
+      </div>
+      <div id="nightRes"></div>
+    </div>
+  </section>
+
+  <!-- DECISION -->
+  <section class="tab" id="t-decision">
+    <h2>Aide à la décision</h2>
+    <p class="lead">Qualifiez chaque point vu sur place. Les points critiques pèsent double. Les alertes issues des calculs s’ajoutent automatiquement.</p>
+    <div id="verdict"></div>
+    <div class="panel"><h3>Alertes des calculs</h3><ul class="alerts" id="alertList"></ul></div>
+    <div id="checklist"></div>
+  </section>
+
+  <!-- ARTISTIQUE -->
+  <section class="tab" id="t-artistique">
+    <h2>Pistes artistiques</h2>
+    <p class="lead">Décrivez ce que vous voyez et l’intention de la commande : l’outil propose un concept, un déroulé minuté, des effets adaptés à l’architecture et une palette. Générez des variantes jusqu’à trouver une base de discussion.</p>
+    <div class="panel">
+      <h4 style="margin-top:0">Style architectural</h4><div class="chips" data-chips="styles"></div>
+      <h4>Éléments remarquables relevés</h4><div class="chips" data-chips="elements"></div>
+      <div class="grid">
+        <label>Thème / intention<select data-bind="art.theme" data-opts="THEMES"></select></label>
+        <label>Tonalité<select data-bind="art.tone" data-opts="TONES"></select></label>
+        <label>Public visé<select data-bind="art.publicType" data-opts="PUBLICS"></select></label>
+        <label class="full">Éléments imposés ou idées du client<textarea data-bind="art.idees" placeholder="Personnage historique, devise, date anniversaire, logo…"></textarea></label>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn primary" id="genBtn">Proposer</button><button class="btn" id="varBtn">Nouvelle variante</button></div>
+    </div>
+    <div id="propOut"></div>
+  </section>
+
+  <!-- RAPPORT -->
+  <section class="tab" id="t-rapport">
+    <h2>Rapport de pré-audit</h2>
+    <p class="lead">Synthèse imprimable : choisissez « Enregistrer en PDF » dans la fenêtre d’impression. L’export JSON contient tout le projet, photos comprises.</p>
+    <div class="row" style="margin-bottom:18px"><button class="btn primary" id="printBtn">Imprimer / PDF</button><button class="btn" id="exportBtn">Exporter le projet (.json)</button></div>
+    <div class="panel" id="repPreview"></div>
+  </section>
+  </main>
+</div>
+
+<div id="modal" hidden>
+  <div class="edbar">
+    <div class="mode" id="edMode"><button data-m="ref">Référence</button><button data-m="mes" class="on">Mesurer</button><button data-m="pin">Note</button></div>
+    <button class="btn sm" id="edUndo">Annuler</button>
+    <span style="flex:1"></span>
+    <button class="btn sm danger" id="edDel">Supprimer la photo</button>
+    <button class="btn sm primary" id="edClose">Fermer</button>
+  </div>
+  <div class="edbody">
+    <div class="cvwrap"><canvas id="cv"></canvas></div>
+    <div class="edside">
+      <label>Zone<select id="edZone" data-opts="ZONES"></select></label>
+      <label>Légende<textarea id="edCap" style="min-height:70px"></textarea></label>
+      <p class="note" id="edScale"></p>
+      <div class="mlist" id="edList"></div>
+      <p class="hint">La mesure n’est fiable que dans le plan de la référence, photo prise bien de face. Plus la référence est longue, plus la mesure est juste.</p>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<div id="printArea"></div>
+
+<script>
+'use strict';
+/* ================= utilitaires ================= */
+const rad=Math.PI/180;
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pnum=v=>{if(v===''||v==null)return NaN;const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:NaN};
+const num=(v,d=0)=>{const n=pnum(v);return isFinite(n)?n:d};
+const fmt=(n,d=1)=>isFinite(n)?Number(n).toLocaleString('fr-FR',{maximumFractionDigits:d}):'—';
+const hm=d=>d&&!isNaN(d)?d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'—';
+function getPath(o,p){return p.split('.').reduce((a,k)=>a==null?undefined:a[k],o)}
+function setPath(o,p,v){const k=p.split('.');let a=o;k.slice(0,-1).forEach(x=>{if(a[x]==null||typeof a[x]!=='object')a[x]={};a=a[x]});a[k[k.length-1]]=v}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),3200)}
+function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(arr,r){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function download(name,blob){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+
+/* ================= référentiels ================= */
+const TYPES={facade:'Mapping façade extérieure',sonlum:'Son et lumière',interieur:'Mapping intérieur / voûtes',deamb:'Parcours nocturne / déambulation',objet:'Mapping objet / scénographie',naturel:'Mapping sur site naturel'};
+const STATUT={non:'Non protégé',inscrit:'Inscrit monument historique',classe:'Classé monument historique',abords:'Abords MH / site patrimonial remarquable'};
+const MAT={blanc:['Enduit blanc / chaux',.75],pierreblanche:['Pierre blanche / marbre clair',.65],calcaire:['Pierre calcaire claire',.55],gres:['Grès / pierre dorée',.40],beton:['Béton brut',.40],bois:['Bois',.30],brique:['Brique rouge',.25],schiste:['Pierre sombre / schiste / galets',.15],toile:['Toile ou écran blanc',.85],vegetal:['Végétation / arbres',.10]};
+const AMB={tressombre:['Site très sombre, sans éclairage',15],sombre:['Éclairage public coupé',25],residuel:['Éclairage résiduel (rue, monument voisin)',40],urbain:['Centre-ville éclairé, vitrines',60]};
+const RES={wuxga:['WUXGA 1920×1200 (16:10)',1920,1200],uhd:['4K UHD 3840×2160 (16:9)',3840,2160],hd:['Full HD 1920×1080 (16:9)',1920,1080]};
+const ZONES={facade:'Façade / support',details:'Détails architecturaux',video:'Position vidéoprojection',regie:'Régie',public:'Zone public',son:'Son / enceintes',elec:'Alimentation électrique',acces:'Accès et circulation',parasite:'Éclairage parasite',secu:'Sécurité / évacuation',env:'Environnement / abords',autre:'Autre'};
+const TARGETS={'':'—','calc.L':'Largeur surface','calc.H':'Hauteur surface','calc.D':'Distance de projection','calc.hp':'Hauteur des projecteurs','calc.sonD':'Enceintes → dernier rang','calc.bruit':'Bruit ambiant'};
+const PUBLICS={tout:'Tout public',famille:'Familles avec enfants',institutionnel:'Institutionnel / inauguration',festival:'Festival / grand rassemblement'};
+
+const CHECK=[
+ ['Support et surface',[
+  ['surf_degage','Surface projetable dégagée (arbres, câbles, échafaudages, mobilier)',2],
+  ['surf_teinte','Teinte et état du support compatibles',1],
+  ['surf_relief','Relief et architecture exploitables artistiquement',1],
+  ['surf_releve','Relevé 3D ou plan de façade réalisable',1]]],
+ ['Positions techniques',[
+  ['pos_axe','Emplacement vidéo dans l’axe, à la bonne distance',2],
+  ['pos_hauteur','Mise en hauteur possible (praticable, nacelle, bâtiment en vis-à-vis)',1],
+  ['pos_protect','Protection des projecteurs (météo, public, vandalisme)',1],
+  ['pos_regie','Régie avec vue directe sur la surface',1]]],
+ ['Énergie',[
+  ['nrj_dispo','Puissance électrique disponible à proximité',2],
+  ['nrj_cable','Longueurs de câble raisonnables (moins de 50 m)',1],
+  ['nrj_groupe','Groupe électrogène possible (emplacement, bruit)',1]]],
+ ['Lumière parasite',[
+  ['lp_ep','Éclairage public coupable sur la zone',2],
+  ['lp_patri','Mise en lumière patrimoniale coupable',1],
+  ['lp_autres','Enseignes, vitrines, phares de véhicules maîtrisés',1]]],
+ ['Public et sécurité',[
+  ['pub_zone','Zone public suffisante et dégagée, bonne visibilité',2],
+  ['pub_flux','Flux, accès secours et évacuation',2],
+  ['pub_faisceau','Aucun faisceau dans les yeux du public ou des conducteurs',1],
+  ['pub_pmr','Accessibilité PMR',1]]],
+ ['Logistique',[
+  ['log_acces','Accès véhicules et déchargement',1],
+  ['log_stock','Stockage et gardiennage nocturne du matériel',1],
+  ['log_temps','Nuits disponibles pour le montage et le calage',2]]],
+ ['Réglementaire',[
+  ['reg_proprio','Accord du propriétaire / affectataire',2],
+  ['reg_abf','Avis de l’architecte des Bâtiments de France (si MH ou abords)',2],
+  ['reg_arretes','Arrêtés municipaux (circulation, stationnement, éclairage)',1],
+  ['reg_decla','Déclaration de manifestation, droits musicaux',1]]],
+ ['Environnement',[
+  ['env_meteo','Exposition au vent et aux intempéries acceptable',1],
+  ['env_riverains','Nuisances riverains (son, horaires) acceptables',1],
+  ['env_faune','Pas d’enjeu faune sensible (chiroptères, nidification)',1]]]
+];
+
+const STYLES={roman:['Roman','Masses, pleins dominant les vides : travailler la matière et la lumière rasante.'],gothique:['Gothique','Verticalité et élan : exploiter les lignes ascendantes, remplages et gâbles.'],classique:['Renaissance / classique','Symétrie et ordres : les effets miroirs et les compositions centrées fonctionnent bien.'],baroque:['Baroque','Courbes et profusion : animations fluides, ornements qui s’enroulent.'],militaire:['Fortification','Lignes défensives, appareil massif : récit épique, tracés d’ingénieur, matières brutes.'],industriel:['Industriel','Trames, structures métalliques, rythmes répétitifs : mécanique et synchronisation sonore.'],contemporain:['Contemporain','Surfaces lisses et grandes : abstraction, illusions de volume, typographie.'],vernaculaire:['Bâti traditionnel','Échelle humaine, matériaux locaux : récit intime, habitants, savoir-faire.'],naturel:['Site naturel','Falaise, rochers, arbres : surfaces irrégulières, privilégier textures et lumière plutôt que l’image précise.']};
+
+const ELEMENTS={
+ fenetres:['Fenêtres / baies',[['Fenêtres habitées','silhouettes, ombres chinoises et scènes de vie dans les baies'],['Volets battants','les baies s’ouvrent et se ferment en canon, sur le rythme']]],
+ arcs:['Arcs / voûtes',[['Arcs en tension','les claveaux s’allument un à un, l’arc respire et se déforme'],['Portails','chaque arc devient une fenêtre sur un paysage ou une époque']]],
+ colonnes:['Colonnes / pilastres',[['Colonnes vivantes','les fûts se torsadent, ondulent ou se remplissent de liquide'],['Orgue de lumière','chaque colonne est une note, la façade joue la partition']]],
+ rosace:['Rosace / oculus',[['Kaléidoscope','la rosace tourne, se démultiplie et irradie sur toute la surface'],['L’œil','l’oculus devient pupille et regarde le public']]],
+ creneaux:['Créneaux / remparts',[['Veille et assaut','feux de guet, torches et ombres de soldats sur le chemin de ronde'],['Tracé d’ingénieur','les lignes de défense se dessinent comme un plan ancien']]],
+ tours:['Tours / clocher',[['Élévation','la tour se prolonge vers le ciel par la lumière'],['Phare','un faisceau tournant balaie la scène, en relais avec les asservis']]],
+ horloge:['Horloge / cadran',[['Le temps s’emballe','les aiguilles accélèrent et font défiler les siècles']]],
+ sculptures:['Sculptures / modénatures',[['Ornements animés','les sculptures prennent vie le temps d’une séquence puis se figent'],['Soleil rasant','un soleil virtuel balaie la façade et révèle chaque relief']]],
+ appareil:['Pierre apparente',[['Pierre à pierre','chaque pierre s’allume, se détache puis se repose : l’édifice se reconstruit'],['Joints de lumière','les joints deviennent des veines où circule l’énergie']]],
+ toiture:['Toiture / corniche',[['Ligne d’horizon','la corniche partage la terre et le ciel, deux mondes qui dialoguent']]],
+ porte:['Porte monumentale',[['Le seuil','la porte s’ouvre sur un intérieur imaginaire, premier ou dernier tableau']]],
+ balcons:['Balcons / ferronneries',[['Ferronneries végétales','les motifs de fer forgé poussent comme des lianes']]]
+};
+const GENERIC_FX=[['Matières','la façade devient eau, or, glace, végétal ou braise'],['Fausse profondeur','la surface se creuse, s’ouvre et révèle des volumes impossibles'],['Ombres virtuelles','un éclairage simulé déplace les ombres et trouble la lecture du relief'],['Particules','poussières, lucioles, cendres ou pétales qui habitent la façade'],['Calligraphie','mots et signes écrits à la main de lumière'],['Déconstruction','le bâti se fragmente puis se recompose']];
+
+const THEMES={
+ histoire:{label:'Histoire du lieu',titles:['Les pierres se souviennent','Mille ans en une nuit','Mémoire de façade','Le temps d’un regard'],beats:['Les origines : le site avant l’édifice','Le chantier : bâtisseurs, outils, savoir-faire','Les grandes heures : personnages et événements','Les épreuves : conflits, abandon, ruine','La renaissance : restauration et vie d’aujourd’hui'],music:'Orchestral hybride, instruments d’époque, voix off ou narrateur.'},
+ legende:{label:'Légende / conte local',titles:['La nuit des légendes','Ce que racontent les murs','Il était une pierre'],beats:['L’invitation : une voix, un personnage guide','Le monde ordinaire','L’irruption du merveilleux','L’épreuve et le basculement','Le retour, transformé'],music:'Conte musical : un thème par personnage, bruitages narratifs.'},
+ nature:{label:'Nature et saisons',titles:['Quatre saisons sur la pierre','Racines','Le souffle du paysage'],beats:['L’hiver : minéral et silencieux','Le printemps : la façade bourgeonne','L’été : chaleur, insectes, lumière dorée','L’automne : chute, couleurs, vent','Le cycle recommence'],music:'Nappes organiques, prises de son du site, piano et cordes.'},
+ eau:{label:'Eau et mer',titles:['Marée haute','Sous la surface','La source'],beats:['La goutte','Le ruissellement sur la pierre','L’immersion : la façade sous l’eau','La tempête','Le reflux et le calme'],music:'Sound design aquatique, percussions profondes, chœurs lointains.'},
+ cosmos:{label:'Ciel et cosmos',titles:['Constellations','Le monument et les étoiles','Nuit claire'],beats:['Le crépuscule','Les premières étoiles se posent sur l’architecture','Le voyage : orbites et planètes','La pluie d’étoiles filantes','L’aube'],music:'Électronique ambient, synthés analogiques, montée progressive.'},
+ abstrait:{label:'Abstrait / géométrique',titles:['Architectures sonores','Trame','Volumes'],beats:['Le point','La ligne','Le plan','Le volume','Chaos et recomposition'],music:'Électronique rythmée, synchronisation stricte image/son, silences marqués.'},
+ festif:{label:'Festif / fin d’année',titles:['La façade en fête','Nuit de lumière','Le grand bal des pierres'],beats:['Les trois coups','La façade se pare','Le défilé : lanternes et personnages','Le bal','Le bouquet'],music:'Medley entraînant, cuivres, final façon feu d’artifice.'},
+ identite:{label:'Identité et culture locale',titles:['Racines du pays','Terre de vent et de pierre','Ici'],beats:['Le paysage : mer, plaine, montagne','Les métiers et savoir-faire','Les fêtes et traditions','Les gens d’ici : portraits','La transmission'],music:'Musiques traditionnelles réarrangées, instruments du pays, voix d’habitants.'},
+ memoire:{label:'Mémoire / commémoration',titles:['Pour mémoire','Les noms','Lumière pour ceux qui restent'],beats:['Le silence','Le contexte','Les témoignages','L’hommage','La lumière qui demeure'],music:'Sobre : cordes, piano, silences, textes lus. Éviter le spectaculaire.'},
+ industrie:{label:'Patrimoine industriel / métiers',titles:['Machines','L’usine rêve','Mains d’œuvre'],beats:['Le feu qui démarre','Les rouages','Les ouvriers','La production à plein régime','Le silence, puis la reconversion'],music:'Percussions mécaniques, rythmes industriels, montée électro-orchestrale.'}
+};
+const TONES={
+ contemplatif:{label:'Contemplatif',palette:[['Bleu lunaire','#9DB4D9'],['Indigo','#2E3A7A'],['Argent','#D9DCE3'],['Ambre doux','#E3B573'],['Nuit','#10142B']],rythme:'Plans longs, fondus, très peu de coupes.'},
+ epique:{label:'Épique',palette:[['Braise','#C2361F'],['Or','#D9A520'],['Acier','#5B6670'],['Fumée','#1A1715'],['Blanc chaud','#F4E8D2']],rythme:'Montée en tension, ruptures franches, climax calé sur la musique.'},
+ poetique:{label:'Poétique',palette:[['Rose poudré','#E8B4B8'],['Lavande','#A99BD1'],['Céladon','#9CC9B4'],['Crème','#F3E9D7'],['Ardoise','#4A5B7C']],rythme:'Métamorphoses lentes, mouvements fluides, animation organique.'},
+ festif:{label:'Festif',palette:[['Fuchsia','#E2378B'],['Jaune soleil','#F7C531'],['Turquoise','#21B5B0'],['Orange','#F27A2A'],['Violet','#6B3FA0']],rythme:'Coupes sur le temps, boucles courtes, énergie constante.'},
+ sacre:{label:'Sacré / solennel',palette:[['Or ancien','#B8893A'],['Pourpre','#5E1F4A'],['Blanc cierge','#F6EEDC'],['Bleu vitrail','#1F4E8C'],['Ombre','#191521']],rythme:'Lent, symétrique, centré sur l’axe de l’édifice.'}
+};
+const OPTS={TYPES,STATUT,MAT,AMB,RES,ZONES,TARGETS,PUBLICS,
+  THEMES:Object.fromEntries(Object.entries(THEMES).map(([k,v])=>[k,v.label])),
+  TONES:Object.fromEntries(Object.entries(TONES).map(([k,v])=>[k,v.label]))};
+
+/* ================= stockage ================= */
+const DB={db:null,mem:{projects:{},files:{}},
+ async open(){try{this.db=await new Promise((res,rej)=>{const r=indexedDB.open('reperage-mapping',1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('projects',{keyPath:'id'});d.createObjectStore('files',{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+ }catch(e){this.db=null;toast('Stockage local indisponible : exportez vos projets avant de fermer.')}},
+ tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);const r=fn(t.objectStore(store));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})},
+ async all(s){return this.db?this.tx(s,'readonly',o=>o.getAll()):Object.values(this.mem[s])},
+ async get(s,id){return this.db?this.tx(s,'readonly',o=>o.get(id)):this.mem[s][id]},
+ async put(s,v){if(!this.db){this.mem[s][v.id]=v;return}return this.tx(s,'readwrite',o=>o.put(v))},
+ async del(s,id){if(!this.db){delete this.mem[s][id];return}return this.tx(s,'readwrite',o=>o.delete(id))}
+};
+
+/* ================= projet ================= */
+let P=null,curTab='projets';
+function newProject(){return{id:uid(),name:'Nouveau repérage',created:Date.now(),updated:Date.now(),
+ site:{client:'',lieu:'',commune:'',type:'facade',statut:'non',dateVisite:new Date().toISOString().slice(0,10),dateSpectacle:'',duree:12,public:'',budget:'',lat:'',lon:'',orientation:'',contacts:'',notes:''},
+ photos:[],mesures:[],scans:[],check:{},
+ calc:{L:'',H:'',materiau:'calcaire',ambiance:'sombre',D:'',hp:3,lumens:30000,resol:'wuxga',overlap:15,pertes:.8,sonD:'',bruit:'',wlm:.1,autresKw:4,fin:'23:30'},
+ art:{styles:[],elements:[],theme:'histoire',tone:'contemplatif',publicType:'tout',idees:'',seed:1,proposal:null}}}
+function migrate(p){const t=newProject();for(const k of['site','calc','art'])p[k]={...t[k],...(p[k]||{})};p.photos=p.photos||[];p.mesures=p.mesures||[];p.scans=p.scans||[];p.check=p.check||{};return p}
+let saveT;
+function scheduleSave(){if(!P)return;$('#saveState').textContent='Modification…';clearTimeout(saveT);saveT=setTimeout(saveNow,500)}
+async function saveNow(){if(!P)return;P.updated=Date.now();try{await DB.put('projects',P);$('#saveState').textContent='Enregistré à '+hm(new Date())}catch(e){$('#saveState').textContent='Non enregistré';toast('Enregistrement impossible (stockage plein ?). Exportez le projet.')}}
+function updHeader(){$('#pName').textContent=P?(P.name||'Sans titre'):'Aucun repérage ouvert';$('#pSub').textContent=P?([P.site.lieu,P.site.commune].filter(Boolean).join(', ')||TYPES[P.site.type]):'Créez ou ouvrez un repérage'}
+async function openProject(id){const p=await DB.get('projects',id);if(!p)return;P=migrate(p);updHeader();$('#saveState').textContent='';show('site')}
+
+/* ================= liaison des champs ================= */
+function bindAll(root){$$('[data-bind]',root).forEach(el=>{const v=getPath(P,el.dataset.bind);if(el.type==='checkbox')el.checked=!!v;else el.value=(v==null?'':('num' in el.dataset&&v!==''?String(v).replace('.',','):v))})}
+function onField(e){const el=e.target.closest('[data-bind]');if(!el||!P)return;let v=el.type==='checkbox'?el.checked:el.value;if('num' in el.dataset){v=el.value.trim()===''?'':pnum(el.value);if(!isFinite(v)&&v!=='')return}setPath(P,el.dataset.bind,v);scheduleSave();const p=el.dataset.bind;if(p==='name'||p.startsWith('site.'))updHeader();if(p==='site.orientation')orientText();if(curTab==='calculs')renderCalc()}
+document.addEventListener('input',onField);document.addEventListener('change',onField);
+
+/* ================= navigation ================= */
+const R={};
+function show(t){if(t!=='projets'&&!P){toast('Créez ou ouvrez d’abord un repérage.');return}curTab=t;$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$$('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));if(R[t])R[t]();window.scrollTo(0,0)}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(b)show(b.dataset.tab)});
+
+/* ================= projets ================= */
+R.projets=async()=>{const list=(await DB.all('projects')).sort((a,b)=>b.updated-a.updated);const el=$('#plist');
+ if(!list.length){el.innerHTML='<p class="empty">Aucun repérage pour l’instant. Créez-en un en arrivant sur le site.</p>';return}
+ el.innerHTML=list.map(p=>`<article class="pcard ${P&&P.id===p.id?'cur':''}"><div><h3>${esc(p.name)}</h3><p>${esc([p.site&&p.site.lieu,p.site&&p.site.commune].filter(Boolean).join(', ')||'Lieu non renseigné')}</p><p class="meta">${(p.photos||[]).length} photo(s), ${(p.mesures||[]).length} relevé(s), modifié le ${new Date(p.updated).toLocaleDateString('fr-FR')}</p></div><div class="row"><button class="btn primary" data-open="${p.id}">Ouvrir</button><button class="btn" data-dup="${p.id}">Dupliquer</button><button class="btn danger" data-del="${p.id}">Supprimer</button></div></article>`).join('')};
+$('#plist').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.open)openProject(b.dataset.open);
+ if(b.dataset.dup){const p=await DB.get('projects',b.dataset.dup);const c=JSON.parse(JSON.stringify(p));c.id=uid();c.name=p.name+' (copie)';c.scans=[];c.updated=Date.now();await DB.put('projects',c);R.projets()}
+ if(b.dataset.del){const p=await DB.get('projects',b.dataset.del);if(!confirm('Supprimer définitivement « '+p.name+' » ?'))return;for(const s of p.scans||[])await DB.del('files',s.id);await DB.del('projects',p.id);if(P&&P.id===p.id){P=null;updHeader()}R.projets()}});
+$('#newBtn').onclick=async()=>{P=newProject();await saveNow();updHeader();show('site');setTimeout(()=>{const n=$('[data-bind="name"]');n.focus();n.select()},50)};
+$('#importJson').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());if(!p.site||!p.calc)throw 0;if(await DB.get('projects',p.id))p.id=uid();p.scans=[];migrate(p);await DB.put('projects',p);toast('Projet importé');R.projets()}catch(_){toast('Fichier non reconnu : exportez-le depuis cet outil.')}};
+
+/* ================= site ================= */
+function card(deg){const n=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];return n[Math.round(((deg%360)+360)%360/22.5)%16]}
+function orientText(){const o=pnum(P.site.orientation);$('#orientTxt').textContent=isFinite(o)?'Façade tournée vers '+card(o)+' ('+Math.round(o)+'°)':''}
+R.site=()=>{bindAll($('#t-site'));orientText()};
+$('#gpsBtn').onclick=()=>{if(!navigator.geolocation){toast('Géolocalisation indisponible');return}toast('Recherche de la position…');navigator.geolocation.getCurrentPosition(p=>{P.site.lat=+p.coords.latitude.toFixed(6);P.site.lon=+p.coords.longitude.toFixed(6);scheduleSave();R.site();toast('Position relevée à ±'+Math.round(p.coords.accuracy)+' m')},err=>toast(err.code===1?'Accès à la position refusé':'Position indisponible : saisissez les coordonnées'),{enableHighAccuracy:true,timeout:20000,maximumAge:60000})};
+
+/* ================= photos ================= */
+function compress(file,max=2000,q=.82){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const img=new Image();img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(u);res({data:c.toDataURL('image/jpeg',q),w,h})};img.onerror=()=>{URL.revokeObjectURL(u);rej()};img.src=u})}
+async function addPhotos(files){const zone=$('#zoneNew').value;let n=0;for(const f of files){try{const r=await compress(f);P.photos.push({id:uid(),zone,caption:'',data:r.data,w:r.w,h:r.h,date:Date.now(),ann:{ref:null,lines:[],pins:[],order:[]}});n++}catch(_){toast('Image illisible : '+f.name)}}await saveNow();renderPhotos();if(n)toast(n+' photo(s) ajoutée(s)')}
+$('#camIn').onchange=e=>{addPhotos([...e.target.files]);e.target.value=''};
+$('#libIn').onchange=e=>{addPhotos([...e.target.files]);e.target.value=''};
+$('#zoneFilter').onchange=()=>renderPhotos();
+function renderPhotos(){const f=$('#zoneFilter').value;const list=P.photos.filter(p=>!f||p.zone===f);$('#photoCount').textContent=P.photos.length+' photo(s) au total';
+ $('#pgrid').innerHTML=list.length?list.map(p=>{const nm=p.ann.lines.length,np=p.ann.pins.length;return`<button class="ph" data-ph="${p.id}"><img src="${p.data}" alt=""><div><span class="badge">${esc(ZONES[p.zone]||'')}</span><br>${esc(p.caption)||'<small>Sans légende</small>'}<small>${nm?nm+' mesure(s)':''}${nm&&np?', ':''}${np?np+' note(s)':''}${p.ann.ref?'':(nm?' · sans référence':'')}</small></div></button>`}).join(''):'<p class="empty">Aucune photo dans cette zone.</p>'}
+R.reperage=()=>{const z=$('#zoneFilter');if(!z.options.length)z.innerHTML='<option value="">Toutes les zones</option>'+Object.entries(ZONES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');renderPhotos()};
+$('#pgrid').addEventListener('click',e=>{const b=e.target.closest('[data-ph]');if(b)openEditor(b.dataset.ph)});
+
+/* ---- éditeur de mesure sur photo ---- */
+let ED={ph:null,img:null,mode:'mes',drag:null};
+const dist=l=>Math.hypot(l.x2-l.x1,l.y2-l.y1);
+const scaleOf=ph=>ph.ann.ref&&dist(ph.ann.ref)>0?ph.ann.ref.len/dist(ph.ann.ref):0;
+function drawAnn(ctx,img,ph,temp,tmode){const W=ph.w,H=ph.h;ctx.clearRect(0,0,W,H);ctx.drawImage(img,0,0,W,H);const u=Math.max(W,H)/650,sc=scaleOf(ph);
+ const tag=(x,y,t,col)=>{ctx.font=`600 ${14*u}px "Avenir Next",system-ui,sans-serif`;const m=ctx.measureText(t).width;ctx.fillStyle='rgba(8,11,26,.85)';ctx.fillRect(x-m/2-6*u,y-12*u,m+12*u,24*u);ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,x,y)};
+ const line=(l,col,label)=>{ctx.strokeStyle=col;ctx.lineWidth=2.6*u;ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(l.x2,l.y2);ctx.stroke();for(const[x,y]of[[l.x1,l.y1],[l.x2,l.y2]]){ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,4.5*u,0,7);ctx.fill()}if(label)tag((l.x1+l.x2)/2,(l.y1+l.y2)/2-16*u,label,col)};
+ if(ph.ann.ref)line(ph.ann.ref,'#F0B44C','Réf. '+fmt(ph.ann.ref.len,2)+' m');
+ ph.ann.lines.forEach((l,i)=>line(l,'#7FD6FF',(i+1)+' : '+(sc?fmt(dist(l)*sc,2)+' m':'? m')));
+ ph.ann.pins.forEach((p,i)=>{ctx.fillStyle='#FF8FB1';ctx.beginPath();ctx.arc(p.x,p.y,7*u,0,7);ctx.fill();tag(p.x,p.y-22*u,'N'+(i+1)+' '+p.t,'#FFC2D4')});
+ if(temp)line(temp,tmode==='ref'?'#F0B44C':'#7FD6FF',tmode!=='ref'&&sc?fmt(dist(temp)*sc,2)+' m':'')}
+function renderAnnotated(ph){return new Promise(res=>{const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=ph.w;c.height=ph.h;drawAnn(c.getContext('2d'),img,ph);res(c.toDataURL('image/jpeg',.8))};img.onerror=()=>res(ph.data);img.src=ph.data})}
+function openEditor(id){const ph=P.photos.find(p=>p.id===id);if(!ph)return;ph.ann.order=ph.ann.order||[];ED.ph=ph;const img=new Image();img.onload=()=>{ED.img=img;const cv=$('#cv');cv.width=ph.w;cv.height=ph.h;fitCanvas();edRedraw();edInfo()};img.src=ph.data;$('#edZone').value=ph.zone;$('#edCap').value=ph.caption;$('#modal').hidden=false;document.body.style.overflow='hidden'}
+function fitCanvas(){const cv=$('#cv'),w=$('.cvwrap');if(!ED.ph)return;const s=Math.min((w.clientWidth-16)/ED.ph.w,(w.clientHeight-16)/ED.ph.h);cv.style.width=Math.floor(ED.ph.w*s)+'px';cv.style.height=Math.floor(ED.ph.h*s)+'px'}
+window.addEventListener('resize',()=>{if(!$('#modal').hidden)fitCanvas()});
+function edRedraw(temp){drawAnn($('#cv').getContext('2d'),ED.img,ED.ph,temp,ED.mode)}
+function edInfo(){const ph=ED.ph,sc=scaleOf(ph);$('#edScale').textContent=ph.ann.ref?`Référence : ${fmt(ph.ann.ref.len,2)} m, soit ${fmt(1/sc/100,1)} px/cm`:'Aucune référence : tracez d’abord un segment de longueur connue en mode Référence.';
+ $('#edList').innerHTML=ph.ann.lines.map((l,i)=>`<div><span>Mesure ${i+1} : <b>${sc?fmt(dist(l)*sc,2)+' m':'?'}</b></span>${sc?`<select data-send="${i}"><option value="">Envoyer vers…</option>${Object.entries(TARGETS).filter(([k])=>k).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>`:''}</div>`).join('')+ph.ann.pins.map((p,i)=>`<div><span>Note ${i+1} : ${esc(p.t)}</span></div>`).join('')}
+$('#edList').addEventListener('change',e=>{const s=e.target.closest('[data-send]');if(!s||!s.value)return;const l=ED.ph.ann.lines[+s.dataset.send];const v=+(dist(l)*scaleOf(ED.ph)).toFixed(2);addMesure('Mesure photo '+(+s.dataset.send+1)+' ('+(ZONES[ED.ph.zone]||'')+')',v,'m','Photo',s.value);toast(TARGETS[s.value]+' : '+fmt(v,2)+' m');s.value=''});
+function cvPt(e){const cv=$('#cv'),r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}}
+const cv=$('#cv');
+cv.addEventListener('pointerdown',e=>{e.preventDefault();const p=cvPt(e);if(ED.mode==='pin'){const t=prompt('Texte de la note :');if(t){ED.ph.ann.pins.push({x:p.x,y:p.y,t});ED.ph.ann.order.push('p');scheduleSave();edRedraw();edInfo()}return}cv.setPointerCapture(e.pointerId);ED.drag={x1:p.x,y1:p.y,x2:p.x,y2:p.y}});
+cv.addEventListener('pointermove',e=>{if(!ED.drag)return;const p=cvPt(e);ED.drag.x2=p.x;ED.drag.y2=p.y;edRedraw(ED.drag)});
+cv.addEventListener('pointerup',()=>{if(!ED.drag)return;const l=ED.drag;ED.drag=null;if(dist(l)<10){edRedraw();return}
+ if(ED.mode==='ref'){const v=pnum(prompt('Longueur réelle de ce segment, en mètres :','1')||'');if(v>0){ED.ph.ann.ref={...l,len:v};ED.ph.ann.order.push('r')}}else{ED.ph.ann.lines.push(l);ED.ph.ann.order.push('l')}
+ scheduleSave();edRedraw();edInfo()});
+$('#edMode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ED.mode=b.dataset.m;$$('#edMode button').forEach(x=>x.classList.toggle('on',x===b))});
+$('#edUndo').onclick=()=>{const a=ED.ph.ann,k=a.order.pop();if(k==='l')a.lines.pop();else if(k==='p')a.pins.pop();else if(k==='r')a.ref=null;scheduleSave();edRedraw();edInfo()};
+$('#edZone').onchange=e=>{ED.ph.zone=e.target.value;scheduleSave()};
+$('#edCap').oninput=e=>{ED.ph.caption=e.target.value;scheduleSave()};
+$('#edDel').onclick=()=>{if(!confirm('Supprimer cette photo et ses mesures ?'))return;P.photos=P.photos.filter(p=>p!==ED.ph);closeEditor()};
+$('#edClose').onclick=()=>closeEditor();
+function closeEditor(){$('#modal').hidden=true;document.body.style.overflow='';ED.ph=null;saveNow();renderPhotos()}
+
+/* ================= mesures ================= */
+function addMesure(label,value,unit,source,target){P.mesures.push({id:uid(),label,value,unit,source,target:target||'',date:Date.now()});if(target)setPath(P,target,value);scheduleSave();if(curTab==='mesures')renderMesures()}
+function renderMesures(){$('#mBody').innerHTML=P.mesures.length?P.mesures.map(m=>`<tr><td>${esc(m.label)}</td><td><b>${esc(typeof m.value==='number'?fmt(m.value,2):m.value)}</b> ${esc(m.unit)}</td><td class="note">${esc(m.source||'Saisie')}</td><td><select data-mt="${m.id}">${Object.entries(TARGETS).map(([k,v])=>`<option value="${k}" ${m.target===k?'selected':''}>${v}</option>`).join('')}</select></td><td><button class="btn sm danger" data-mdel="${m.id}">Retirer</button></td></tr>`).join(''):'<tr><td colspan="5" class="note">Aucun relevé.</td></tr>';
+ renderScans()}
+R.mesures=()=>renderMesures();
+$('#mAdd').onclick=()=>{const l=$('#mLabel').value.trim(),raw=$('#mVal').value.trim();if(!l||!raw){toast('Renseignez un libellé et une valeur.');return}const n=pnum(raw);const t=$('#mTarget').value;if(t&&!isFinite(n)){toast('Valeur numérique attendue pour l’envoyer vers les calculs.');return}addMesure(l,isFinite(n)?n:raw,$('#mUnit').value,'Saisie',t);$('#mLabel').value='';$('#mVal').value='';$('#mTarget').value=''};
+$('#mBody').addEventListener('click',e=>{const b=e.target.closest('[data-mdel]');if(!b)return;P.mesures=P.mesures.filter(m=>m.id!==b.dataset.mdel);scheduleSave();renderMesures()});
+$('#mBody').addEventListener('change',e=>{const s=e.target.closest('[data-mt]');if(!s)return;e.stopPropagation();const m=P.mesures.find(x=>x.id===s.dataset.mt);if(s.value&&typeof m.value!=='number'){toast('Valeur non numérique');s.value=m.target;return}m.target=s.value;if(s.value)setPath(P,s.value,m.value);scheduleSave();if(s.value)toast(TARGETS[s.value]+' mis à jour')});
+
+/* ---- capteurs ---- */
+const S={beta:null,gamma:null,heading:null,on:false,off:0,base:null,top:null,raf:0};
+function onOri(e){if(e.beta==null)return;S.beta=e.beta;S.gamma=e.gamma;if(e.webkitCompassHeading!=null)S.heading=e.webkitCompassHeading;else if(e.absolute&&e.alpha!=null)S.heading=(360-e.alpha)%360;if(!S.raf)S.raf=requestAnimationFrame(()=>{S.raf=0;updSensors()})}
+function rawElev(){if(S.beta==null)return null;const v=-Math.cos(S.beta*rad)*Math.cos(S.gamma*rad);return Math.asin(Math.max(-1,Math.min(1,v)))/rad}
+function elev(){const r=rawElev();return r==null?null:r-S.off}
+function updSensors(){const e=elev();$('#elevLive').innerHTML=(e==null?'—':fmt(e,1))+'<small> °</small>';$('#elevOnCam').textContent=e==null?'':fmt(e,1)+' °';$('#headLive').innerHTML=(S.heading==null?'—':Math.round(S.heading)+'° '+card(S.heading))+'<small>'+(S.heading==null?' °':'')+'</small>'}
+$('#sensBtn').onclick=async()=>{try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted'){toast('Accès aux capteurs refusé');return}}
+ if(!S.on){window.addEventListener('deviceorientation',onOri,true);S.on=true}$('#sensState').textContent='Capteurs actifs';setTimeout(()=>{if(S.beta==null)$('#sensState').textContent='Aucune donnée : appareil sans capteur ou page hors https'},1500)}catch(_){toast('Capteurs indisponibles : ouvrez l’outil en https (voir Projets)')}};
+let camStream=null;
+$('#camToggle').onclick=async()=>{if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;$('#viseur').hidden=true;$('#camToggle').textContent='Activer la visée caméra';return}
+ try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});$('#camV').srcObject=camStream;$('#viseur').hidden=false;$('#camToggle').textContent='Couper la caméra'}catch(_){toast('Caméra en direct indisponible (autorisation ou https). Visez avec le bord supérieur de l’iPad.')}};
+$('#visCal').onclick=()=>{const r=rawElev();if(r==null){toast('Activez d’abord les capteurs');return}S.off=r;toast('Horizontale calibrée');updSensors()};
+function visCalc(){const d=pnum($('#visD').value),eye=num($('#visEye').value,1.5);let txt='';
+ const fb=v=>v==null?'—':fmt(v,1)+'°';txt=`Base : ${fb(S.base)}, sommet : ${fb(S.top)}. `;
+ if(!(d>0)){$('#visRes').textContent=txt+'Saisissez la distance horizontale.';return null}
+ if(S.top==null){$('#visRes').textContent=txt;return null}
+ let h;if(S.base!=null)h=d*(Math.tan(S.top*rad)-Math.tan(S.base*rad));else h=d*Math.tan(S.top*rad)+eye;
+ $('#visRes').innerHTML=txt+`Hauteur estimée : <b>${fmt(h,2)} m</b>${S.base==null?' (sol supposé plat, hauteur des yeux ajoutée)':''}.`;return h}
+$('#visBase').onclick=()=>{const e=elev();if(e==null){toast('Activez d’abord les capteurs');return}S.base=e;visCalc()};
+$('#visTop').onclick=()=>{const e=elev();if(e==null){toast('Activez d’abord les capteurs');return}S.top=e;visCalc()};
+$('#visD').oninput=visCalc;$('#visEye').oninput=visCalc;
+$('#visSave').onclick=()=>{const h=visCalc();if(h==null||!isFinite(h)){toast('Mesure incomplète');return}addMesure($('#visLabel').value.trim()||'Hauteur par visée',+h.toFixed(2),'m','Inclinomètre','');S.base=S.top=null;$('#visLabel').value='';visCalc();toast('Hauteur enregistrée')};
+$('#orientBtn').onclick=()=>{if(S.heading==null){toast('Boussole indisponible : activez les capteurs');return}const o=Math.round((S.heading+180)%360);P.site.orientation=o;scheduleSave();$('#orientRes').textContent='Façade tournée vers '+card(o)+' ('+o+'°), enregistrée dans Site.'};
+
+/* ---- sonomètre ---- */
+let SND=null;
+function sonoLoop(){if(!SND)return;SND.an.getFloatTimeDomainData(SND.buf);let s=0;for(const v of SND.buf)s+=v*v;const rms=Math.sqrt(s/SND.buf.length);const db=20*Math.log10(rms||1e-9)+num($('#dbOff').value,105);
+ if(isFinite(db)){SND.now=db;if(Date.now()-SND.t0>800){SND.min=Math.min(SND.min,db);SND.max=Math.max(SND.max,db);SND.e+=Math.pow(10,db/10);SND.n++}}
+ if(!SND.f){SND.f=1;setTimeout(()=>{if(!SND)return;SND.f=0;$('#dbLive').innerHTML=fmt(SND.now,0)+'<small> dB</small>';$('#dbStats').textContent=`Min ${fmt(SND.min,0)} · Max ${fmt(SND.max,0)} · Leq ${SND.n?fmt(10*Math.log10(SND.e/SND.n),0):'—'} dB sur ${Math.round((Date.now()-SND.t0)/1000)} s`},250)}
+ requestAnimationFrame(sonoLoop)}
+$('#dbStart').onclick=async()=>{if(SND){SND.st.getTracks().forEach(t=>t.stop());SND.ac.close();SND=null;$('#dbStart').textContent='Démarrer';return}
+ try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});const ac=new(window.AudioContext||window.webkitAudioContext)();const an=ac.createAnalyser();an.fftSize=2048;ac.createMediaStreamSource(st).connect(an);SND={st,ac,an,buf:new Float32Array(an.fftSize),min:Infinity,max:-Infinity,e:0,n:0,t0:Date.now(),now:NaN};$('#dbStart').textContent='Arrêter';sonoLoop()}catch(_){toast('Micro indisponible (autorisation refusée ou page hors https)')}};
+$('#dbSave').onclick=()=>{if(!SND||!SND.n){toast('Lancez une mesure d’au moins quelques secondes');return}const leq=+(10*Math.log10(SND.e/SND.n)).toFixed(0);addMesure('Bruit ambiant (Leq '+Math.round((Date.now()-SND.t0)/1000)+' s)',leq,'dB','Micro iPad','calc.bruit');toast('Leq '+leq+' dB enregistré')};
+
+/* ---- scans ---- */
+const AR_IMG='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>');
+const urls={};
+async function renderScans(){const rows=[];for(const s of P.scans){const f=await DB.get('files',s.id);let link='<span class="note">fichier absent de cet appareil</span>';if(f&&f.blob){urls[s.id]=urls[s.id]||URL.createObjectURL(f.blob);const u=urls[s.id];link=/\.usdz$/i.test(s.name)?`<a class="btn sm" rel="ar" href="${u}"><img src="${AR_IMG}" alt="">Voir en AR</a> <a class="btn sm" href="${u}" download="${esc(s.name)}">Télécharger</a>`:`<a class="btn sm" href="${u}" download="${esc(s.name)}">Ouvrir / télécharger</a>`}
+ rows.push(`<tr><td>${esc(s.name)}<br><small class="note">${fmt(s.size/1048576,1)} Mo</small></td><td><input data-snote="${s.id}" value="${esc(s.note||'')}" placeholder="Note (zone, appli utilisée…)"></td><td>${link}</td><td><button class="btn sm danger" data-sdel="${s.id}">Retirer</button></td></tr>`)}
+ $('#scanBody').innerHTML=rows.join('')||'<tr><td class="note">Aucun fichier.</td></tr>'}
+$('#scanIn').onchange=async e=>{for(const f of e.target.files){const id=uid();let blob=f;if(/\.usdz$/i.test(f.name))blob=new Blob([f],{type:'model/vnd.usdz+zip'});try{await DB.put('files',{id,name:f.name,blob});P.scans.push({id,name:f.name,size:f.size,note:''})}catch(_){toast('Fichier trop volumineux pour le stockage local : '+f.name)}}e.target.value='';await saveNow();renderScans()};
+$('#scanBody').addEventListener('click',async e=>{const b=e.target.closest('[data-sdel]');if(!b)return;if(!confirm('Retirer ce fichier ?'))return;await DB.del('files',b.dataset.sdel);P.scans=P.scans.filter(s=>s.id!==b.dataset.sdel);scheduleSave();renderScans()});
+$('#scanBody').addEventListener('input',e=>{const i=e.target.closest('[data-snote]');if(!i)return;e.stopPropagation();const s=P.scans.find(x=>x.id===i.dataset.snote);if(s){s.note=i.value;scheduleSave()}});
+
+/* ================= calculs ================= */
+function lensCat(tr){if(!isFinite(tr))return'—';if(tr<.8)return'Ultra-courte focale';if(tr<1.3)return'Courte focale';if(tr<2.2)return'Focale standard';if(tr<4)return'Longue focale';return'Très longue focale'}
+function computeVideo(){const c=P.calc,L=pnum(c.L),H=pnum(c.H);if(!(L>0&&H>0))return null;
+ const rho=(MAT[c.materiau]||MAT.calcaire)[1],target=(AMB[c.ambiance]||AMB.sombre)[1],lm=num(c.lumens,20000),r=RES[c.resol]||RES.wuxga,rw=r[1],rh=r[2],a=rw/rh;
+ const o=Math.min(.4,Math.max(0,num(c.overlap,15)/100)),loss=Math.min(1,Math.max(.3,num(c.pertes,.8)));let best=null;
+ for(let nc=1;nc<=12;nc++)for(let nr=1;nr<=6;nr++){const w=Math.max(L/(nc-(nc-1)*o),a*H/(nr-(nr-1)*o)),h=w/a;const E1=lm*loss/(w*h),L1=E1*rho/Math.PI;const st=Math.max(1,Math.ceil(target/L1));if(st>4)continue;const n=nc*nr*st,pxm=rw/w;const score=n*100+(st-1)*60-Math.min(pxm,150)*.4;if(!best||score<best.score)best={nc,nr,st,n,w,h,E:E1*st,Lum:L1*st,pxm,score}}
+ if(!best)return{err:'Flux insuffisant : même avec 4 projecteurs empilés, la luminance visée n’est pas atteinte. Augmentez le flux unitaire ou réduisez la surface.'};
+ const D=pnum(c.D),hp=num(c.hp,0);const tr=D>0?D/best.w:NaN;const angTop=D>0?Math.atan((H-hp)/D)/rad:NaN;
+ const pxW=Math.round(best.nc*rw-(best.nc-1)*o*rw),pxH=Math.round(best.nr*rh-(best.nr-1)*o*rh);
+ return{...best,L,H,rho,target,lm,tr,D,angTop,pxW,pxH,lens:lensCat(tr),totLm:best.n*lm}}
+function computeSon(){const d=pnum(P.calc.sonD);if(!(d>0))return null;const amb=isFinite(pnum(P.calc.bruit))?pnum(P.calc.bruit):50;const target=Math.min(98,Math.max(82,amb+20));const spl1=target+20*Math.log10(d)+10;
+ let cat;if(spl1<118)cat='Enceintes compactes de sonorisation';else if(spl1<128)cat='Enceintes large bande et caissons de basse';else if(spl1<138)cat='Petit système line array';else cat='Line array grand format, rappels conseillés';
+ return{d,amb,target,spl1,cat,delay:d>40}}
+function computeNrj(v){const kwV=v&&!v.err?v.n*v.lm*num(P.calc.wlm,.1)/1000:0;const kw=kwV+num(P.calc.autresKw,0);const kva=kw/.8*1.25;const sizes=[9,20,30,45,60,100,150,200,300];const g=sizes.find(s=>s>=kva);
+ let src;if(kva<=7)src='Une à deux prises 16 A sur circuits distincts';else if(kva<=22)src='Coffret triphasé 32 A (environ 22 kVA)';else if(kva<=43)src='Coffret triphasé 63 A (environ 43 kVA)';else src='Branchement forain de forte puissance ou groupe électrogène';
+ return{kwV,kw,kva,g,src}}
+/* ---- soleil (d’après SunCalc, V. Agafonkin, BSD) ---- */
+const J1970=2440588,J2000=2451545,dayMs=864e5,OBL=rad*23.4397;
+const toDays=d=>d.valueOf()/dayMs-.5+J1970-J2000;
+const fromJ=j=>new Date((j+.5-J1970)*dayMs);
+const decl=(l,b)=>Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+const rAsc=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
+const sMA=d=>rad*(357.5291+.98560028*d);
+const eLon=M=>{const C=rad*(1.9148*Math.sin(M)+.02*Math.sin(2*M)+.0003*Math.sin(3*M));return M+C+rad*102.9372+Math.PI};
+function sunAlt(date,lat,lng){const lw=rad*-lng,phi=rad*lat,d=toDays(date),M=sMA(d),L=eLon(M),dec=decl(L,0),ra=rAsc(L,0);const H=rad*(280.16+360.9856235*d)-lw-ra;return Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H))/rad}
+function sunTimes(date,lat,lng){const lw=rad*-lng,phi=rad*lat,d=toDays(date),n=Math.round(d-.0009-lw/(2*Math.PI)),ds=.0009+lw/(2*Math.PI)+n,M=sMA(ds),L=eLon(M),dec=decl(L,0),Jn=J2000+ds+.0053*Math.sin(M)-.0069*Math.sin(2*L);
+ const set=h=>{const w=Math.acos((Math.sin(h*rad)-Math.sin(phi)*Math.sin(dec))/(Math.cos(phi)*Math.cos(dec)));const a=.0009+(w+lw)/(2*Math.PI)+n;const j=J2000+a+.0053*Math.sin(M)-.0069*Math.sin(2*L);const r=fromJ(j);return isNaN(r)?null:r};
+ return{sunset:set(-.833),civil:set(-6),nautical:set(-12),astro:set(-18),noon:fromJ(Jn)}}
+function moonIllum(date){const syn=29.530588853,ref=Date.UTC(2000,0,6,18,14);const ph=(((date-ref)/dayMs%syn)+syn)%syn/syn;return{frac:(1-Math.cos(2*Math.PI*ph))/2,phase:ph}}
+function nightInfo(){const lat=pnum(P.site.lat),lon=pnum(P.site.lon);if(!isFinite(lat)||!isFinite(lon))return null;const ds=P.site.dateSpectacle||new Date().toISOString().slice(0,10);const[y,m,d]=ds.split('-').map(Number);const noon=new Date(y,m-1,d,12);const t=sunTimes(noon,lat,lon);
+ const start=t.nautical||(t.civil?new Date(t.civil.getTime()+20*6e4):null);const[fh,fm]=(P.calc.fin||'23:30').split(':').map(Number);const fin=new Date(y,m-1,d,fh||23,fm||0);if((fh||23)<12)fin.setDate(fin.getDate()+1);
+ const dur=Math.max(1,num(P.site.duree,12));const seances=start?Math.max(0,Math.floor((fin-start+15*6e4)/((dur+15)*6e4))):0;
+ return{lat,lon,noon,t,start,fin,seances,dur,moon:moonIllum(new Date(y,m-1,d,22)),dateTxt:noon.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),assumed:!P.site.dateSpectacle}}
+function altColor(a){const st=[[6,[242,216,160]],[0,[226,150,96]],[-6,[118,84,142]],[-12,[44,52,110]],[-18,[13,17,38]]];if(a>=6)return st[0][1];if(a<=-18)return st[4][1];for(let i=0;i<4;i++){const[a1,c1]=st[i],[a2,c2]=st[i+1];if(a<=a1&&a>=a2){const k=(a1-a)/(a1-a2);return c1.map((v,j)=>Math.round(v+(c2[j]-v)*k))}}return st[4][1]}
+function bandHTML(N){const t0=new Date(N.noon);t0.setHours(16,0,0,0);const span=10*36e5;const stops=[];for(let i=0;i<=60;i++){const d=new Date(t0.getTime()+span*i/60);const c=altColor(sunAlt(d,N.lat,N.lon));stops.push(`rgb(${c}) ${(i/60*100).toFixed(1)}%`)}
+ const mks=[['Coucher',N.t.sunset,'',1],['',N.t.civil],['',N.t.astro],['Début conseillé',N.start,'start lo',1],['Fin autorisée',N.fin,'',1]].filter(m=>m[1]);
+ const html=mks.map(([l,d,cls,lab])=>{const p=(d-t0)/span*100;if(p<0||p>100)return'';return`<div class="mk ${cls||''}" style="left:${p.toFixed(2)}%">${lab?`<em>${l} ${hm(d)}</em>`:''}</div>`}).join('');
+ const hrs=[16,18,20,22,0,2].map(h=>`<span>${String(h).padStart(2,'0')} h</span>`).join('');
+ return`<div class="bandwrap"><div class="band" style="background:linear-gradient(90deg,${stops.join(',')})">${html}</div><div class="hours">${hrs}</div></div>`}
+function ro(v,l,hl){return`<div class="ro ${hl?'hl':''}"><b>${v}</b><span>${l}</span></div>`}
+function renderCalc(){const v=computeVideo();
+ if(!v)$('#vidRes').innerHTML='<p class="hint">Renseignez largeur et hauteur de la surface.</p>';
+ else if(v.err)$('#vidRes').innerHTML=`<p class="hint" style="color:var(--bad)">${v.err}</p>`;
+ else $('#vidRes').innerHTML=`<div class="readouts">${ro(v.n,'projecteurs ('+v.nc+' × '+v.nr+(v.st>1?', empilés × '+v.st:'')+')',1)}${ro(fmt(v.Lum,0)+' cd/m²','luminance obtenue (cible '+v.target+')')}${ro(fmt(v.E,0)+' lx','éclairement sur la surface')}${ro(fmt(v.totLm/1000,0)+' k lm','flux total installé')}${ro(fmt(v.w,1)+' × '+fmt(v.h,1)+' m','image par projecteur')}${ro(fmt(v.tr,2)+' : 1','rapport de projection'+(isFinite(v.tr)?'':' (distance ?)'))}${ro(fmt(v.pxm,0)+' px/m','densité, pixel de '+fmt(1000/v.pxm,0)+' mm')}${ro(v.pxW+' × '+v.pxH,'résolution du canevas (px)')}</div>
+ <p class="note">Optique : <b>${v.lens}</b>${isFinite(v.angTop)?`, visée vers le haut de l’image à ${fmt(v.angTop,0)}°`:''}. Réflectance retenue : ${fmt(v.rho*100,0)} %. Luminance = éclairement × réflectance ÷ π, hors zones de fusion (plus lumineuses).</p>`;
+ const s=computeSon();$('#sonRes').innerHTML=s?`<div class="readouts">${ro(fmt(s.target,0)+' dB','niveau visé au dernier rang',1)}${ro(fmt(s.spl1,0)+' dB','niveau max requis à 1 m')}${ro(s.delay?'Oui':'Non','rappels (delays)')}</div><p class="note">${s.cat}. Calcul en champ libre (−6 dB par doublement de distance), 10 dB de réserve pour les crêtes, bruit ambiant ${s.amb===50&&!isFinite(pnum(P.calc.bruit))?'supposé à 50 dB':fmt(s.amb,0)+' dB'}.</p>`:'<p class="hint">Renseignez la distance entre les enceintes et le dernier rang.</p>';
+ const e=computeNrj(v);$('#nrjRes').innerHTML=`<div class="readouts">${ro(fmt(e.kw,1)+' kW','puissance totale ('+fmt(e.kwV,1)+' kW vidéo)')}${ro(fmt(e.kva,0)+' kVA','à prévoir avec marge',1)}${ro(e.g?e.g+' kVA':'—','groupe électrogène indicatif')}</div><p class="note">${e.src}. Facteur de puissance 0,8, marge de 25 %. Vérifiez le régime de neutre et la protection différentielle sur place.</p>`;
+ const N=nightInfo();$('#nightRes').innerHTML=N?`<p class="note">${N.dateTxt}${N.assumed?' (date du spectacle non renseignée : aujourd’hui)':''}, heures de cet appareil.</p>${bandHTML(N)}<div class="readouts">${ro(hm(N.start),'début conseillé (nuit nautique)',1)}${ro(hm(N.t.sunset),'coucher du soleil')}${ro(hm(N.t.civil),'calage possible dès (fin du crépuscule civil)')}${ro(hm(N.t.astro),'nuit noire')}${ro(N.seances,'séance(s) de '+N.dur+' min avant '+hm(N.fin))}${ro(fmt(N.moon.frac*100,0)+' %','lune éclairée')}</div><p class="note">Le contraste devient bon à la fin du crépuscule nautique (soleil 12° sous l’horizon). Une pleine lune haute dans le ciel reste négligeable devant la vidéo, mais compte pour l’éclairage du public.</p>`:'<p class="hint">Renseignez latitude et longitude dans Site.</p>'}
+R.calculs=()=>{bindAll($('#t-calculs'));renderCalc()};
+
+/* ================= décision ================= */
+function alertsList(){const a=[],v=computeVideo(),s=computeSon(),e=computeNrj(v),N=nightInfo(),st=P.site;
+ if(!v)a.push(['info','Dimensions de la surface non renseignées : le dimensionnement vidéo n’est pas évalué.']);
+ else if(v.err)a.push(['bad',v.err]);
+ else{if(v.n>=10)a.push(['warn',v.n+' projecteurs : dispositif lourd (structure, calage, budget). Envisager des projecteurs plus puissants.']);
+  if(isFinite(v.tr)&&v.tr>4)a.push(['warn','Rapport de projection de '+fmt(v.tr,1)+' : optique très longue, disponibilité et coût à vérifier, ou rapprocher la position.']);
+  if(isFinite(v.tr)&&v.tr<.8)a.push(['warn','Rapport de projection de '+fmt(v.tr,2)+' : ultra-courte focale, ou reculer la position.']);
+  if(!isFinite(v.tr))a.push(['info','Distance de projection non renseignée : choix d’optique non évalué.']);
+  if(isFinite(v.angTop)&&v.angTop>25)a.push(['warn','Visée à '+fmt(v.angTop,0)+'° : forte déformation, ombres des reliefs et perte de résolution en partie haute. Rehausser ou reculer les projecteurs.']);
+  if(v.pxm<25)a.push(['warn','Densité de '+fmt(v.pxm,0)+' px/m : image peu définie pour un public proche. Préférer des projecteurs 4K ou plus de tuiles.']);
+  if(v.rho<=.25)a.push(['warn','Support sombre (réflectance '+fmt(v.rho*100,0)+' %) : le flux nécessaire augmente fortement.'])}
+ if(e.kva>43)a.push(['warn',fmt(e.kva,0)+' kVA nécessaires : groupe électrogène ou branchement de forte puissance à prévoir.']);
+ if(s&&s.delay)a.push(['warn','Dernier rang à '+fmt(s.d,0)+' m : prévoir des rappels pour éviter de surexposer les premiers rangs.']);
+ if(s&&s.amb>65)a.push(['warn','Bruit ambiant élevé ('+fmt(s.amb,0)+' dB) : le confort d’écoute sera difficile.']);
+ if(st.statut!=='non')a.push(['warn','Site protégé ('+STATUT[st.statut]+') : consulter l’ABF et l’affectataire tôt ; aucune fixation sur le monument.']);
+ if(N&&N.start&&N.start.getHours()>=22)a.push(['info','Nuit nautique à '+hm(N.start)+' : spectacle tardif, '+N.seances+' séance(s) possible(s).']);
+ if(N&&N.seances===0)a.push(['bad','Aucune séance ne tient entre la tombée de la nuit et la fin autorisée.']);
+ if(!N)a.push(['info','Coordonnées absentes : horaires de nuit non évalués.']);
+ if(num(st.public,0)>=1500)a.push(['info','Jauge de '+st.public+' personnes : dossier de sécurité et déclaration renforcés.']);
+ if(!P.photos.length)a.push(['info','Aucune photo de repérage.']);
+ return a}
+function verdict(){let w=0,s=0,bl=0,at=0,nb=0;const acts=[];CHECK.forEach(([cat,items])=>items.forEach(([id,l,wt])=>{const c=P.check[id];if(!c||!c.s)return;nb++;if(c.s==='na')return;w+=wt;s+=wt*({ok:1,at:.5,bl:0}[c.s]);if(c.s==='bl')bl++;if(c.s==='at')at++;if(c.s!=='ok')acts.push([c.s,l,c.c||''])}));
+ const total=CHECK.reduce((n,[,i])=>n+i.length,0);const sc=w?Math.round(s/w*100):null;let txt,col;
+ if(sc==null){txt='À évaluer';col='var(--muted)'}else if(bl){txt='Non faisable en l’état';col='var(--bad)'}else if(sc>=80){txt='Faisable';col='var(--ok)'}else if(sc>=55){txt='Faisable sous conditions';col='var(--warn)'}else{txt='Risqué : approfondir';col='var(--bad)'}
+ return{sc,txt,col,bl,at,nb,total,acts}}
+function renderDecision(){const V=verdict(),A=alertsList();
+ $('#verdict').innerHTML=`<div class="verdict" style="border-color:${V.col}"><b style="color:${V.col}">${V.txt}</b><div class="gauge"><div style="width:${V.sc||0}%;background:${V.col}"></div></div><span class="note">${V.sc==null?'Aucun critère qualifié':'Score '+V.sc+' / 100'} · ${V.nb} critère(s) sur ${V.total} qualifiés · ${V.bl} bloquant(s) · ${V.at} à traiter</span>${V.acts.length?'<h4>Actions à mener</h4><ul class="plain">'+V.acts.map(([s,l,c])=>`<li><b style="color:${s==='bl'?'var(--bad)':'var(--warn)'}">${s==='bl'?'Bloquant':s==='at'?'À traiter':'?'}</b> · ${esc(l)}${c?' : '+esc(c):''}</li>`).join('')+'</ul>':''}</div>`;
+ $('#alertList').innerHTML=A.map(([l,t])=>`<li class="${l}">${esc(t)}</li>`).join('')||'<li class="info">Aucune alerte.</li>';
+ $('#checklist').innerHTML=CHECK.map(([cat,items])=>`<div class="panel"><h3>${cat}</h3>${items.map(([id,l,wt])=>{const c=P.check[id]||{};return`<div class="ck"><div class="lbl">${esc(l)}${wt>1?' <small>· critique</small>':''}</div><div class="seg" data-ck="${id}">${[['ok','OK'],['at','À traiter'],['bl','Bloquant'],['na','N/A']].map(([k,t])=>`<button data-v="${k}" class="${c.s===k?'on':''}">${t}</button>`).join('')}</div>${c.s==='at'||c.s==='bl'?`<input data-ckc="${id}" value="${esc(c.c||'')}" placeholder="Précision, solution envisagée, contact…">`:''}</div>`}).join('')}</div>`).join('')}
+R.decision=renderDecision;
+$('#checklist').addEventListener('click',e=>{const b=e.target.closest('.seg button');if(!b)return;const id=b.parentElement.dataset.ck;const c=P.check[id]=P.check[id]||{};c.s=c.s===b.dataset.v?'':b.dataset.v;scheduleSave();const y=window.scrollY;renderDecision();window.scrollTo(0,y)});
+$('#checklist').addEventListener('input',e=>{const i=e.target.closest('[data-ckc]');if(!i)return;e.stopPropagation();P.check[i.dataset.ckc].c=i.value;scheduleSave()});
+$('#checklist').addEventListener('change',e=>{if(e.target.closest('[data-ckc]')){e.stopPropagation();renderDecisionVerdictOnly()}});
+function renderDecisionVerdictOnly(){const y=window.scrollY;renderDecision();window.scrollTo(0,y)}
+
+/* ================= artistique ================= */
+function renderChips(){const defs={styles:Object.fromEntries(Object.entries(STYLES).map(([k,v])=>[k,v[0]])),elements:Object.fromEntries(Object.entries(ELEMENTS).map(([k,v])=>[k,v[0]]))};
+ $$('[data-chips]').forEach(box=>{const key=box.dataset.chips,sel=P.art[key]||[];box.innerHTML=Object.entries(defs[key]).map(([k,l])=>`<button class="chip ${sel.includes(k)?'on':''}" data-k="${k}" aria-pressed="${sel.includes(k)}">${l}</button>`).join('')})}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-chips] .chip');if(!b||!P)return;const key=b.parentElement.dataset.chips;const arr=P.art[key]=P.art[key]||[];const i=arr.indexOf(b.dataset.k);if(i>=0)arr.splice(i,1);else arr.push(b.dataset.k);b.classList.toggle('on',i<0);b.setAttribute('aria-pressed',i<0);scheduleSave()});
+function mmss(s){s=Math.round(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function generate(){const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEMES.histoire,tn=TONES[A.tone]||TONES.contemplatif,st=P.site,dur=Math.max(3,num(st.duree,12))*60;
+ const elFx=[];(A.elements||[]).forEach(k=>{const e=ELEMENTS[k];if(e)e[1].forEach(f=>elFx.push([f[0],f[1],e[0]]))});
+ const pool=shuffle(elFx,r).concat(shuffle(GENERIC_FX.map(f=>[f[0],f[1],'']),r));
+ const parts=[['Ouverture','Noir complet, puis révélation au trait : les arêtes de l’architecture se dessinent avant toute image.',.08,['Révélation au trait','la façade se dessine en lignes de lumière','']]];
+ th.beats.forEach((b,i)=>parts.push([b,'',.15,pool[i%pool.length]]));
+ parts.push(['Final','Synthèse visuelle et musicale, toutes les techniques convergent, ' +(A.publicType==='institutionnel'?'puis message ou identité du commanditaire, sobrement intégrés.':'la façade revient à son état réel dans un dernier fondu.'),.12,pool[(th.beats.length)%pool.length]]);
+ parts.push(['Salut','Éclairage de mise en valeur de l’édifice, sortie du public en musique.',.05,null]);
+ let t=0;const seq=parts.map(([name,txt,f,fx])=>{const s={t0:t,t1:t+f*dur,name,txt,fx:fx?{n:fx[0],d:fx[1],el:fx[2]}:null};t+=f*dur;return s});
+ const title=th.titles[Math.floor(r()*th.titles.length)];
+ const ratio=num(P.calc.L,0)/Math.max(.1,num(P.calc.H,0));
+ const styleNotes=(A.styles||[]).map(k=>STYLES[k]&&STYLES[k][0]+' : '+STYLES[k][1]).filter(Boolean);
+ const vig=[];
+ if(st.statut!=='non')vig.push('Monument protégé : les effets de destruction (incendie, effondrement, fissures) peuvent heurter l’affectataire ou l’ABF. Les faire valider en amont et prévoir une alternative.');
+ if(['brique','schiste','vegetal'].includes(P.calc.materiau))vig.push('Support sombre : privilégier contrastes forts et aplats lumineux, éviter les détails fins en basses lumières.');
+ if(['blanc','toile','pierreblanche'].includes(P.calc.materiau))vig.push('Support très clair : la lumière parasite remonte les noirs. Travailler des fonds sombres texturés plutôt qu’un noir pur.');
+ if(ratio>2.5)vig.push('Format panoramique : narration latérale, travellings et poursuites d’un bord à l’autre.');
+ if(ratio>0&&ratio<.8)vig.push('Format vertical : jouer l’élévation, les chutes et les ascensions.');
+ if(A.publicType==='famille'&&dur>15*60)vig.push('Public familial : viser 10 à 15 minutes, ou découper en tableaux courts.');
+ if(A.publicType==='festival')vig.push('Grand rassemblement : lisibilité de loin, effets amples, pas de texte fin.');
+ if(!(A.elements||[]).length)vig.push('Aucun élément architectural coché : la proposition reste générique.');
+ vig.push('Un relevé précis (photogrammétrie ou scan LiDAR) conditionne les effets d’architecture, calés au centimètre.');
+ const lum=['Mise en lumière d’ambiance (projecteurs LED RGBW) pour l’accueil et la sortie du public.'];
+ if((A.elements||[]).some(k=>['tours','creneaux'].includes(k)))lum.push('Asservis à faisceau serré sur tours et créneaux, en relais des effets vidéo.');
+ if(st.type==='sonlum'||st.type==='deamb')lum.push('Éclairage des cheminements et découpes sur les éléments non projetables (arbres, statues, fontaines).');
+ if(st.type==='interieur')lum.push('Intérieur : maîtriser les retours de lumière sur vitraux, dorures et peintures murales.');
+ lum.push('Brumisateur léger pour matérialiser les faisceaux, à écarter si détection incendie ou intérieur protégé sans accord.');
+ const pitch=`${TYPES[st.type]||'Spectacle'} de ${fmt(dur/60,0)} minutes, tonalité ${tn.label.toLowerCase()}, autour du thème « ${th.label.toLowerCase()} »${st.lieu?', conçu pour '+st.lieu:''}. ${elFx.length?'L’écriture s’appuie sur '+[...new Set(elFx.map(f=>f[2].toLowerCase()))].slice(0,3).join(', ')+' pour que l’architecture reste le premier personnage.':'L’architecture reste le premier personnage : chaque tableau part de ses lignes réelles.'}`;
+ A.proposal={title,pitch,theme:th.label,tone:tn.label,palette:tn.palette,rythme:tn.rythme,music:th.music,seq,styleNotes,vig,lum,idees:A.idees||'',fxAll:elFx.map(f=>({n:f[0],d:f[1],el:f[2]})),date:Date.now()};scheduleSave();renderProposal()}
+function propHTML(p){return`<p class="note">Variante générée le ${new Date(p.date).toLocaleDateString('fr-FR')} à ${hm(new Date(p.date))}</p><h3 class="title">${esc(p.title)}</h3><p class="pitch">${esc(p.pitch)}</p>${p.idees?`<p class="note">À intégrer : ${esc(p.idees)}</p>`:''}
+ <h4>Palette (${esc(p.tone)})</h4><div class="sw">${p.palette.map(([n,c])=>`<div><i style="background:${c}"></i><span>${n}<br>${c}</span></div>`).join('')}</div>
+ <p class="note">Rythme : ${esc(p.rythme)}<br>Musique : ${esc(p.music)}</p>
+ <h4>Déroulé</h4>${p.seq.map(s=>`<div class="seq"><div class="tc">${mmss(s.t0)}</div><div><b>${esc(s.name)}</b>${s.txt?`<p>${esc(s.txt)}</p>`:''}${s.fx?`<p class="fx">Effet : ${esc(s.fx.n)}, ${esc(s.fx.d)}${s.fx.el?' ('+esc(s.fx.el.toLowerCase())+')':''}.</p>`:''}</div></div>`).join('')}
+ ${p.fxAll.length?`<h4>Effets possibles sur l’architecture relevée</h4><ul class="plain">${p.fxAll.map(f=>`<li><b>${esc(f.n)}</b> (${esc(f.el.toLowerCase())}) : ${esc(f.d)}.</li>`).join('')}</ul>`:''}
+ ${p.styleNotes.length?`<h4>Lecture du style</h4><ul class="plain">${p.styleNotes.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:''}
+ <h4>Lumière complémentaire</h4><ul class="plain">${p.lum.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
+ <h4>Points de vigilance</h4><ul class="plain">${p.vig.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`}
+function renderProposal(){const p=P.art.proposal;$('#propOut').innerHTML=p?`<div class="panel prop">${propHTML(p)}</div>`:''}
+R.artistique=()=>{bindAll($('#t-artistique'));renderChips();renderProposal()};
+$('#genBtn').onclick=()=>{generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
+$('#varBtn').onclick=()=>{P.art.seed=(P.art.seed||1)+1;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
+
+/* ================= rapport ================= */
+async function buildReport(withPhotos){const st=P.site,V=verdict(),A=alertsList(),v=computeVideo(),s=computeSon(),e=computeNrj(v),N=nightInfo();
+ const tr=(k,val)=>val!==''&&val!=null?`<tr><th>${k}</th><td>${esc(val)}</td></tr>`:'';
+ let h=`<h1>${esc(P.name)}</h1><p>Pré-audit ${esc(TYPES[st.type]||'')}${st.lieu?' · '+esc(st.lieu):''}${st.commune?', '+esc(st.commune):''} · visite du ${st.dateVisite?new Date(st.dateVisite).toLocaleDateString('fr-FR'):'—'}</p>
+ <section><h2>Identification</h2><table>${tr('Client',st.client)}${tr('Statut patrimonial',STATUT[st.statut])}${tr('Spectacle envisagé',st.dateSpectacle?new Date(st.dateSpectacle).toLocaleDateString('fr-FR'):'')}${tr('Durée',st.duree?st.duree+' min':'')}${tr('Jauge',st.public)}${tr('Budget',st.budget)}${tr('Coordonnées',isFinite(pnum(st.lat))?st.lat+', '+st.lon:'')}${tr('Orientation façade',isFinite(pnum(st.orientation))?card(st.orientation)+' ('+st.orientation+'°)':'')}${tr('Contacts',st.contacts)}${tr('Notes',st.notes)}</table></section>
+ <section><h2>Décision</h2><p><b>${V.txt}</b>${V.sc!=null?' · score '+V.sc+' / 100':''} · ${V.bl} bloquant(s), ${V.at} point(s) à traiter.</p>${V.acts.length?'<table>'+V.acts.map(([x,l,c])=>`<tr><th>${x==='bl'?'Bloquant':'À traiter'}</th><td>${esc(l)}${c?' : '+esc(c):''}</td></tr>`).join('')+'</table>':''}<h3>Alertes</h3><ul>${A.map(([,t])=>`<li>${esc(t)}</li>`).join('')}</ul></section>
+ <section><h2>Dimensionnement indicatif</h2><table>`;
+ if(v&&!v.err)h+=tr('Surface',fmt(v.L,1)+' × '+fmt(v.H,1)+' m, '+(MAT[P.calc.materiau]||[''])[0])+tr('Vidéo',`${v.n} projecteurs de ${fmt(v.lm,0)} lm (${v.nc} × ${v.nr}${v.st>1?', empilés × '+v.st:''}), ${RES[P.calc.resol][0]}`)+tr('Luminance',fmt(v.Lum,0)+' cd/m² pour une cible de '+v.target+' cd/m² ('+AMB[P.calc.ambiance][0]+')')+tr('Image par projecteur',fmt(v.w,1)+' × '+fmt(v.h,1)+' m')+tr('Optique',isFinite(v.tr)?fmt(v.tr,2)+' : 1, '+v.lens:'distance non renseignée')+tr('Résolution',v.pxW+' × '+v.pxH+' px, '+fmt(v.pxm,0)+' px/m');else if(v&&v.err)h+=tr('Vidéo',v.err);
+ if(s)h+=tr('Son',`${fmt(s.target,0)} dB au dernier rang (${fmt(s.d,0)} m), ${fmt(s.spl1,0)} dB max à 1 m : ${s.cat}${s.delay?', rappels nécessaires':''}`);
+ h+=tr('Énergie',`${fmt(e.kw,1)} kW, ${fmt(e.kva,0)} kVA avec marge. ${e.src}`);
+ if(N)h+=tr('Nuit',`${N.dateTxt} : coucher ${hm(N.t.sunset)}, nuit nautique ${hm(N.t.nautical)}, ${N.seances} séance(s) avant ${hm(N.fin)}, lune ${fmt(N.moon.frac*100,0)} %`);
+ h+='</table></section>';
+ if(P.mesures.length)h+=`<section><h2>Relevés</h2><table>${P.mesures.map(m=>`<tr><th>${esc(m.label)}</th><td>${esc(typeof m.value==='number'?fmt(m.value,2):m.value)} ${esc(m.unit)} <small>(${esc(m.source||'')})</small></td></tr>`).join('')}</table></section>`;
+ if(P.scans.length)h+=`<section><h2>Scans et fichiers</h2><ul>${P.scans.map(x=>`<li>${esc(x.name)}${x.note?' : '+esc(x.note):''}</li>`).join('')}</ul></section>`;
+ if(P.art.proposal)h+=`<section><h2>Piste artistique</h2>${propHTML(P.art.proposal)}</section>`;
+ if(P.photos.length){h+='<section><h2>Photos</h2>';if(withPhotos){h+='<div class="pp">';for(const z of Object.keys(ZONES))for(const p of P.photos.filter(x=>x.zone===z)){const d=(p.ann.lines.length||p.ann.pins.length||p.ann.ref)?await renderAnnotated(p):p.data;h+=`<figure><img src="${d}" alt=""><figcaption><b>${esc(ZONES[p.zone])}</b>${p.caption?' : '+esc(p.caption):''}</figcaption></figure>`}h+='</div>'}else h+=`<p>${P.photos.length} photo(s), incluses à l’impression.</p>`;h+='</section>'}
+ return h}
+R.rapport=async()=>{$('#repPreview').innerHTML=await buildReport(false)};
+$('#printBtn').onclick=async()=>{toast('Préparation du rapport…');$('#printArea').innerHTML=await buildReport(true);setTimeout(()=>window.print(),300)};
+$('#exportBtn').onclick=async()=>{await saveNow();const name=(P.name||'repérage').replace(/[^\wÀ-ÿ -]+/g,'').trim().replace(/\s+/g,'-')||'reperage';download(name+'.json',new Blob([JSON.stringify(P)],{type:'application/json'}));if(P.scans.length)toast('Les scans 3D ne sont pas inclus dans l’export : conservez-les à part.')};
+
+/* ================= démarrage ================= */
+function fillSelects(){$$('select[data-opts]').forEach(s=>{const d=OPTS[s.dataset.opts];s.innerHTML=Object.entries(d).map(([k,v])=>`<option value="${k}">${esc(Array.isArray(v)?v[0]:v)}</option>`).join('')})}
+function applyTheme(t){document.documentElement.dataset.theme=t;$('#themeBtn').textContent=t==='day'?'Mode nuit':'Mode jour';$('meta[name=theme-color]').content=t==='day'?'#E4E2DC':'#0F1428';try{localStorage.setItem('rep-theme',t)}catch(_){}}
+$('#themeBtn').onclick=()=>applyTheme(document.documentElement.dataset.theme==='day'?'night':'day');
+(async()=>{let t='night';try{t=localStorage.getItem('rep-theme')||'night'}catch(_){}applyTheme(t);fillSelects();await DB.open();
+ const sec=window.isSecureContext;$('#envInfo').textContent=sec?'Page sécurisée : caméra, capteurs, micro et GPS disponibles.':'Page ouverte hors https : photos, mesures sur photo, calculs, décision et pistes artistiques fonctionnent ; la visée caméra, les capteurs, le micro et le GPS ne seront pas accessibles.';
+ if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+ R.projets()})();
+</script>
+</body>
+</html>

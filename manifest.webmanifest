@@ -1,0 +1,14 @@
+{
+  "name": "Repérage mapping et son et lumière",
+  "short_name": "Repérage",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0F1428",
+  "theme_color": "#0F1428",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
