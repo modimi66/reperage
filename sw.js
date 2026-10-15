@@ -1,5 +1,5 @@
 // Cache hors ligne de l'outil de repérage. Changez VERSION à chaque mise à jour des fichiers.
-const VERSION = 'reperage-v1';
+const VERSION = 'reperage-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
