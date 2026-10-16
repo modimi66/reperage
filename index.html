@@ -148,6 +148,14 @@ td select{padding:6px 8px;font-size:14px}
 .alerts{list-style:none;padding:0;margin:0}
 .alerts li{padding:8px 0 8px 14px;border-left:3px solid var(--muted);margin-bottom:6px;font-size:.92rem}
 .alerts li.bad{border-color:var(--bad)}.alerts li.warn{border-color:var(--warn)}.alerts li.info{border-color:var(--cyan)}
+/* ébauche */
+.ebthumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.ebthumbs button{flex:0 0 128px;padding:0;border:3px solid transparent;border-radius:10px;overflow:hidden;background:none}
+.ebthumbs button.on{border-color:var(--accent)}
+.ebthumbs img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.ebwrap{background:#000;border-radius:12px;overflow:hidden;margin-top:10px}
+#ebCv{width:100%;height:auto;display:block;touch-action:none}
+input[type=range]{padding:0;border:0;background:none;accent-color:var(--accent);min-height:36px}
 /* art */
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
 .chip{padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:500 .92rem var(--f)}
@@ -200,7 +208,8 @@ ul.plain li{margin:4px 0;font-size:.93rem}
     <button data-tab="calculs"><i>4</i>Calculs</button>
     <button data-tab="decision"><i>5</i>Décision</button>
     <button data-tab="artistique"><i>6</i>Artistique</button>
-    <button data-tab="rapport"><i>7</i>Rapport</button>
+    <button data-tab="ebauche"><i>7</i>Ébauche</button>
+    <button data-tab="rapport"><i>8</i>Rapport</button>
   </nav>
 
   <main>
@@ -413,7 +422,34 @@ ul.plain li{margin:4px 0;font-size:.93rem}
       </div>
       <div class="row" style="margin-top:14px"><button class="btn primary" id="genBtn">Proposer</button><button class="btn" id="varBtn">Nouvelle variante</button></div>
     </div>
+    <div class="panel">
+      <h3>Images de référence</h3>
+      <p class="hint">Ambiances, œuvres, palettes, typographies, spectacles vus : elles accompagnent la piste dans le rapport. Une image peut aussi fournir la palette de la proposition et de l’ébauche.</p>
+      <div class="row"><label style="min-width:220px">Catégorie des prochaines images<select id="refCat" data-opts="REFCATS"></select></label><span class="btn primary filebtn">Ajouter des images<input type="file" accept="image/*" multiple id="refIn"></span></div>
+      <div class="row" style="margin-top:10px"><span class="note" id="refPalNote"></span><button class="btn sm ghost" id="refPalReset" hidden>Revenir à la palette de la tonalité</button></div>
+      <div class="pgrid" id="refGrid" style="margin-top:12px"></div>
+    </div>
     <div id="propOut"></div>
+  </section>
+
+  <!-- EBAUCHE -->
+  <section class="tab" id="t-ebauche">
+    <h2>Ébauche</h2>
+    <p class="lead">Simulation nocturne sur vos photos de repérage, avec la palette, le déroulé et les effets de la piste artistique. Une esquisse pour se projeter et convaincre, pas un rendu de calage.</p>
+    <div class="panel"><h3>Photo</h3><div class="ebthumbs" id="ebThumbs"></div></div>
+    <div class="panel" id="ebMain">
+      <div class="row"><div class="mode" id="ebMode"><button data-m="cadre">Cadrer la surface</button><button data-m="sim" class="on">Simuler</button></div><button class="btn sm" id="ebPlay">Pause</button><button class="btn sm ghost" id="ebReset">Réinitialiser le cadre</button></div>
+      <p class="hint" id="ebHint"></p>
+      <div class="ebwrap"><canvas id="ebCv"></canvas></div>
+      <div class="grid" style="margin-top:14px">
+        <label class="full">Séquence ou effet<select id="ebSeq"></select></label>
+        <label>Nuit simulée<input type="range" id="ebNight" min="0" max="100" value="70"></label>
+        <label>Puissance vidéo<input type="range" id="ebPow" min="20" max="160" value="100"></label>
+      </div>
+      <p class="note" id="ebNote"></p>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="ebSnap">Capturer l’image</button></div>
+    </div>
+    <div class="panel"><h3>Images capturées</h3><p class="hint">Elles sont ajoutées au rapport de pré-audit.</p><div class="pgrid" id="ebGal"></div></div>
   </section>
 
   <!-- RAPPORT -->
@@ -553,7 +589,8 @@ const TONES={
  festif:{label:'Festif',palette:[['Fuchsia','#E2378B'],['Jaune soleil','#F7C531'],['Turquoise','#21B5B0'],['Orange','#F27A2A'],['Violet','#6B3FA0']],rythme:'Coupes sur le temps, boucles courtes, énergie constante.'},
  sacre:{label:'Sacré / solennel',palette:[['Or ancien','#B8893A'],['Pourpre','#5E1F4A'],['Blanc cierge','#F6EEDC'],['Bleu vitrail','#1F4E8C'],['Ombre','#191521']],rythme:'Lent, symétrique, centré sur l’axe de l’édifice.'}
 };
-const OPTS={TYPES,STATUT,MAT,AMB,RES,ZONES,TARGETS,PUBLICS,
+const REFCATS={ambiance:'Ambiance',palette:'Couleurs / palette',effet:'Effet / technique',oeuvre:'Œuvre ou spectacle',typo:'Typographie / graphisme',archi:'Architecture / détail',autre:'Autre'};
+const OPTS={REFCATS,TYPES,STATUT,MAT,AMB,RES,ZONES,TARGETS,PUBLICS,
   THEMES:Object.fromEntries(Object.entries(THEMES).map(([k,v])=>[k,v.label])),
   TONES:Object.fromEntries(Object.entries(TONES).map(([k,v])=>[k,v.label]))};
 
@@ -573,10 +610,10 @@ const DB={db:null,mem:{projects:{},files:{}},
 let P=null,curTab='projets';
 function newProject(){return{id:uid(),name:'Nouveau repérage',created:Date.now(),updated:Date.now(),
  site:{client:'',lieu:'',commune:'',type:'facade',statut:'non',dateVisite:new Date().toISOString().slice(0,10),dateSpectacle:'',duree:12,public:'',budget:'',lat:'',lon:'',orientation:'',contacts:'',notes:''},
- photos:[],mesures:[],scans:[],check:{},
+ photos:[],mesures:[],scans:[],check:{},ebauches:[],
  calc:{L:'',H:'',materiau:'calcaire',ambiance:'sombre',D:'',hp:3,lumens:30000,resol:'wuxga',overlap:15,pertes:.8,sonD:'',bruit:'',wlm:.1,autresKw:4,fin:'23:30'},
- art:{styles:[],elements:[],theme:'histoire',tone:'contemplatif',publicType:'tout',idees:'',seed:1,proposal:null}}}
-function migrate(p){const t=newProject();for(const k of['site','calc','art'])p[k]={...t[k],...(p[k]||{})};p.photos=p.photos||[];p.mesures=p.mesures||[];p.scans=p.scans||[];p.check=p.check||{};return p}
+ art:{styles:[],elements:[],theme:'histoire',tone:'contemplatif',publicType:'tout',idees:'',seed:1,proposal:null,refs:[],palette:null}}}
+function migrate(p){const t=newProject();for(const k of['site','calc','art'])p[k]={...t[k],...(p[k]||{})};p.art.refs=p.art.refs||[];p.photos=p.photos||[];p.mesures=p.mesures||[];p.scans=p.scans||[];p.check=p.check||{};p.ebauches=p.ebauches||[];return p}
 let saveT;
 function scheduleSave(){if(!P)return;$('#saveState').textContent='Modification…';clearTimeout(saveT);saveT=setTimeout(saveNow,500)}
 async function saveNow(){if(!P)return;P.updated=Date.now();try{await DB.put('projects',P);$('#saveState').textContent='Enregistré à '+hm(new Date())}catch(e){$('#saveState').textContent='Non enregistré';toast('Enregistrement impossible (stockage plein ?). Exportez le projet.')}}
@@ -590,7 +627,7 @@ document.addEventListener('input',onField);document.addEventListener('change',on
 
 /* ================= navigation ================= */
 const R={};
-function show(t){if(t!=='projets'&&!P){toast('Créez ou ouvrez d’abord un repérage.');return}curTab=t;$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$$('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));if(R[t])R[t]();window.scrollTo(0,0)}
+function show(t){if(t!=='projets'&&!P){toast('Créez ou ouvrez d’abord un repérage.');return}if(t!=='ebauche')ebStop();curTab=t;$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));$$('.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+t));if(R[t])R[t]();window.scrollTo(0,0)}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(b)show(b.dataset.tab)});
 
 /* ================= projets ================= */
@@ -837,9 +874,9 @@ function generate(){const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEME
  if(st.type==='interieur')lum.push('Intérieur : maîtriser les retours de lumière sur vitraux, dorures et peintures murales.');
  lum.push('Brumisateur léger pour matérialiser les faisceaux, à écarter si détection incendie ou intérieur protégé sans accord.');
  const pitch=`${TYPES[st.type]||'Spectacle'} de ${fmt(dur/60,0)} minutes, tonalité ${tn.label.toLowerCase()}, autour du thème « ${th.label.toLowerCase()} »${st.lieu?', conçu pour '+st.lieu:''}. ${elFx.length?'L’écriture s’appuie sur '+[...new Set(elFx.map(f=>f[2].toLowerCase()))].slice(0,3).join(', ')+' pour que l’architecture reste le premier personnage.':'L’architecture reste le premier personnage : chaque tableau part de ses lignes réelles.'}`;
- A.proposal={title,pitch,theme:th.label,tone:tn.label,palette:tn.palette,rythme:tn.rythme,music:th.music,seq,styleNotes,vig,lum,idees:A.idees||'',fxAll:elFx.map(f=>({n:f[0],d:f[1],el:f[2]})),date:Date.now()};scheduleSave();renderProposal()}
+ A.proposal={title,pitch,theme:th.label,tone:tn.label,palette:A.palette||tn.palette,paletteSrc:A.palette?'image de référence':tn.label,rythme:tn.rythme,music:th.music,seq,styleNotes,vig,lum,idees:A.idees||'',fxAll:elFx.map(f=>({n:f[0],d:f[1],el:f[2]})),date:Date.now()};scheduleSave();renderProposal()}
 function propHTML(p){return`<p class="note">Variante générée le ${new Date(p.date).toLocaleDateString('fr-FR')} à ${hm(new Date(p.date))}</p><h3 class="title">${esc(p.title)}</h3><p class="pitch">${esc(p.pitch)}</p>${p.idees?`<p class="note">À intégrer : ${esc(p.idees)}</p>`:''}
- <h4>Palette (${esc(p.tone)})</h4><div class="sw">${p.palette.map(([n,c])=>`<div><i style="background:${c}"></i><span>${n}<br>${c}</span></div>`).join('')}</div>
+ <h4>Palette (${esc(p.paletteSrc||p.tone)})</h4><div class="sw">${p.palette.map(([n,c])=>`<div><i style="background:${c}"></i><span>${n}<br>${c}</span></div>`).join('')}</div>
  <p class="note">Rythme : ${esc(p.rythme)}<br>Musique : ${esc(p.music)}</p>
  <h4>Déroulé</h4>${p.seq.map(s=>`<div class="seq"><div class="tc">${mmss(s.t0)}</div><div><b>${esc(s.name)}</b>${s.txt?`<p>${esc(s.txt)}</p>`:''}${s.fx?`<p class="fx">Effet : ${esc(s.fx.n)}, ${esc(s.fx.d)}${s.fx.el?' ('+esc(s.fx.el.toLowerCase())+')':''}.</p>`:''}</div></div>`).join('')}
  ${p.fxAll.length?`<h4>Effets possibles sur l’architecture relevée</h4><ul class="plain">${p.fxAll.map(f=>`<li><b>${esc(f.n)}</b> (${esc(f.el.toLowerCase())}) : ${esc(f.d)}.</li>`).join('')}</ul>`:''}
@@ -847,9 +884,118 @@ function propHTML(p){return`<p class="note">Variante générée le ${new Date(p.
  <h4>Lumière complémentaire</h4><ul class="plain">${p.lum.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
  <h4>Points de vigilance</h4><ul class="plain">${p.vig.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`}
 function renderProposal(){const p=P.art.proposal;$('#propOut').innerHTML=p?`<div class="panel prop">${propHTML(p)}</div>`:''}
-R.artistique=()=>{bindAll($('#t-artistique'));renderChips();renderProposal()};
+R.artistique=()=>{bindAll($('#t-artistique'));renderChips();renderRefs();renderProposal()};
 $('#genBtn').onclick=()=>{generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
 $('#varBtn').onclick=()=>{P.art.seed=(P.art.seed||1)+1;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
+
+
+/* ================= ébauche ================= */
+const hex2rgb=h=>{const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255]};
+const clamp01=x=>x<0?0:x>1?1:x;
+const hsh=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const rgba=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const FX_KEY={'Révélation au trait':'trait','Tracé d’ingénieur':'trait','Joints de lumière':'joints','Arcs en tension':'joints','Ornements animés':'joints','Ferronneries végétales':'joints','Pierre à pierre':'pierres','Déconstruction':'deconstruction','Matières':'matieres','Particules':'particules','Kaléidoscope':'kaleido','L’œil':'kaleido','Fenêtres habitées':'fenetres','Volets battants':'fenetres','Soleil rasant':'soleil','Ombres virtuelles':'soleil','Fausse profondeur':'profondeur','Portails':'profondeur','Le seuil':'profondeur','Élévation':'elevation','Phare':'elevation','Colonnes vivantes':'elevation','Orgue de lumière':'elevation','Calligraphie':'calligraphie','Le temps s’emballe':'temps','Veille et assaut':'feu','Ligne d’horizon':'horizon','Salut / mise en valeur':'salut'};
+const fxKey=n=>FX_KEY[n]||'wash';
+const FXR={
+ trait(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const pr=Math.min(1.3,t/3.2);return{edgeAmt:2.6,edgeCol:p[0],gate:(u,v)=>clamp01((pr-(1-v))*5)}},
+ joints(c,W,H,t,p){c.fillStyle=rgba(p[2],.10);c.fillRect(0,0,W,H);return{edgeAmt:2.2,edgeCol:p[1],gate:(u,v)=>.2+.8*Math.max(0,Math.sin(u*9+v*5-t*3))}},
+ pierres(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const cols=14,rows=Math.max(4,Math.round(14*H/W)),cw=W/cols,rh=H/rows;for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const k=j*cols+i,on=t*1.3-(rows-j)*.18-hsh(k)*1.2;if(on>0){const a=Math.min(1,on);c.fillStyle=rgba(p[Math.floor(hsh(k+7)*3)],.6*a);c.fillRect(i*cw+1,j*rh+1-(1-a)*rh*1.5,cw-2,rh-2)}}return{edgeAmt:1.2,edgeCol:p[0]}},
+ deconstruction(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const cols=10,rows=Math.max(3,Math.round(10*H/W)),cw=W/cols,rh=H/rows,k0=(Math.sin(t*.8)+1)/2;for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const k=j*cols+i;if(hsh(k)<.18*k0)continue;const dx=(hsh(k+3)-.5)*cw*.8*k0,dy=(hsh(k+5)-.5)*rh*.8*k0;c.fillStyle=rgba(p[k%3],.25+.4*hsh(k+11));c.fillRect(i*cw+dx+2,j*rh+dy+2,cw-4,rh-4)}return{edgeAmt:.9*(1-k0),edgeCol:p[0]}},
+ matieres(c,W,H,t,p){const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,rgba(p[1],.35));g.addColorStop(1,rgba(p[2],.25));c.fillStyle=g;c.fillRect(0,0,W,H);c.globalCompositeOperation='lighter';for(let i=0;i<7;i++){const x=W*(.5+.45*Math.sin(t*.35*(1+hsh(i))+i*2)),y=H*(.5+.45*Math.cos(t*.27*(1+hsh(i+3))+i)),r=Math.max(W,H)*(.18+.12*hsh(i+9)),rg=c.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,rgba(p[i%3],.55));rg.addColorStop(1,rgba(p[i%3],0));c.fillStyle=rg;c.fillRect(0,0,W,H)}c.globalCompositeOperation='source-over';return{edgeAmt:.4,edgeCol:p[0]}},
+ particules(c,W,H,t,p){c.fillStyle=rgba(p[2],.06);c.fillRect(0,0,W,H);c.globalCompositeOperation='lighter';for(let i=0;i<260;i++){const sp=14+40*hsh(i+2),x=hsh(i)*W+Math.sin(t*1.3+i)*6,y=H+10-((hsh(i+1)*(H+20)+t*sp)%(H+20)),r=1+2.4*hsh(i+3);c.fillStyle=rgba(p[i%3],.9);c.beginPath();c.arc(x,y,r,0,7);c.fill()}c.globalCompositeOperation='source-over';return{edgeAmt:.5,edgeCol:p[0]}},
+ kaleido(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const cx=W/2,cy=H*.42,R=Math.max(W,H),n=24;for(let k=0;k<n;k++){const a0=k/n*Math.PI*2+t*.3,a1=a0+Math.PI/n;c.fillStyle=rgba(p[k%3],.45);c.beginPath();c.moveTo(cx,cy);c.arc(cx,cy,R,a0,a1);c.closePath();c.fill()}c.lineWidth=3;for(let k=1;k<8;k++){const r=((k/8+t*.08)%1)*R*.5;c.strokeStyle=rgba(p[(k+1)%3],.7);c.beginPath();c.arc(cx,cy,r,0,7);c.stroke()}return{edgeAmt:.6,edgeCol:p[0]}},
+ fenetres(c,W,H,t,p){c.fillStyle=rgba(p[2],.05);c.fillRect(0,0,W,H);return{edgeAmt:.3,edgeCol:p[1],darkAmt:2.6*(.8+.12*Math.sin(t*6)+.08*Math.sin(t*13.7)),darkCol:[255,186,105]}},
+ soleil(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const bx=(t*.16)%1.4-.2,g=c.createLinearGradient((bx-.3)*W,0,(bx+.3)*W,0);g.addColorStop(0,rgba(p[0],0));g.addColorStop(.5,rgba(p[0],.45));g.addColorStop(1,rgba(p[0],0));c.fillStyle=g;c.fillRect(0,0,W,H);return{edgeAmt:2.4,edgeCol:[255,232,190],gate:u=>clamp01(1-Math.abs(u-bx)/.22)}},
+ profondeur(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);for(let k=0;k<12;k++){const s=(k/12+t*.1)%1,w=W*(1-s),h=H*(1-s);c.strokeStyle=rgba(p[k%3],.25+.6*(1-s));c.lineWidth=2+6*(1-s);c.strokeRect((W-w)/2,(H-h)/2,w,h)}return{edgeAmt:.3,edgeCol:p[0]}},
+ elevation(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const n=9;for(let i=0;i<n;i++){const x=(i+.5)/n*W,h=H*(.3+.7*Math.abs(Math.sin(t*1.1+i*.7))),g=c.createLinearGradient(0,H,0,H-h);g.addColorStop(0,rgba(p[i%3],.75));g.addColorStop(1,rgba(p[i%3],0));c.fillStyle=g;c.fillRect(x-W/34,H-h,W/17,h)}return{edgeAmt:.7,edgeCol:p[0]}},
+ calligraphie(c,W,H,t,p){c.fillStyle=rgba(p[2],.08);c.fillRect(0,0,W,H);const txt=(P.art.proposal&&P.art.proposal.title)||'Lumière';c.save();c.beginPath();c.rect(0,0,W*Math.min(1,t/3),H);c.clip();c.fillStyle=rgba(p[0],.95);c.textAlign='center';c.textBaseline='middle';let fs=H*.22;c.font=`italic 600 ${fs}px Didot, Georgia, serif`;while(c.measureText(txt).width>W*.9&&fs>10){fs*=.9;c.font=`italic 600 ${fs}px Didot, Georgia, serif`}c.fillText(txt,W/2,H*.48);c.restore();return{edgeAmt:.3,edgeCol:p[1]}},
+ temps(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const cx=W/2,cy=H/2,R=Math.min(W,H)*.42;c.strokeStyle=rgba(p[0],.8);c.lineWidth=3;c.beginPath();c.arc(cx,cy,R,0,7);c.stroke();for(let k=0;k<12;k++){const a=k/12*Math.PI*2;c.beginPath();c.moveTo(cx+Math.cos(a)*R*.85,cy+Math.sin(a)*R*.85);c.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);c.stroke()}for(const[sp,len,col,lw]of[[t*.6,.55,p[1],6],[t*4,.85,p[0],3]]){const a=sp-Math.PI/2;c.strokeStyle=rgba(col,.9);c.lineWidth=lw;c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a)*R*len,cy+Math.sin(a)*R*len);c.stroke()}return{edgeAmt:.4,edgeCol:p[2]}},
+ feu(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);c.globalCompositeOperation='lighter';for(let i=0;i<34;i++){const x=(i+.5)/34*W,h=H*(.25+.3*Math.abs(Math.sin(t*3+i*1.7))*(.6+.4*hsh(i))),g=c.createRadialGradient(x,H,0,x,H,h);g.addColorStop(0,'rgba(255,210,90,.75)');g.addColorStop(.5,'rgba(255,110,30,.45)');g.addColorStop(1,'rgba(160,20,0,0)');c.fillStyle=g;c.fillRect(x-h,H-h,2*h,h)}c.globalCompositeOperation='source-over';return{edgeAmt:1,edgeCol:[255,90,40],gate:(u,v)=>v}},
+ horizon(c,W,H,t,p){const g=c.createLinearGradient(0,0,0,H*.5);g.addColorStop(0,rgba(p[2],.5));g.addColorStop(1,rgba(p[1],.35));c.fillStyle=g;c.fillRect(0,0,W,H*.5);c.fillStyle='#000';c.fillRect(0,H*.5,W,H*.5);for(let i=0;i<90;i++){c.fillStyle=`rgba(255,255,255,${.4+.6*Math.abs(Math.sin(t*2+i))})`;c.fillRect(hsh(i)*W,hsh(i+1)*H*.45,2,2)}return{edgeAmt:1.4,edgeCol:p[0],gate:(u,v)=>v>.5?1:0}},
+ salut(c,W,H,t,p){c.fillStyle='rgba(255,236,210,.42)';c.fillRect(0,0,W,H);return{edgeAmt:.5,edgeCol:[255,240,220]}},
+ wash(c,W,H,t,p){const o=(t*.08)%1,g=c.createLinearGradient(0,0,W,H);[0,1,2,3].forEach(k=>g.addColorStop(((k/3+o)%1),rgba(p[k%3],.5)));c.fillStyle=g;c.fillRect(0,0,W,H);return{edgeAmt:.4,edgeCol:p[0]}}
+};
+let EB={ph:null,img:null,prep:null,mode:'sim',raf:0,t0:0,tPause:0,playing:true,pal:null,refl:1,cur:null,drag:-1};
+function quadDefault(ph){const mx=ph.w*.12,my=ph.h*.12;return[[mx,my],[ph.w-mx,my],[ph.w-mx,ph.h-my],[mx,ph.h-my]]}
+function homog(q){const[[x0,y0],[x1,y1],[x2,y2],[x3,y3]]=q;const dx1=x1-x2,dx2=x3-x2,dx3=x0-x1+x2-x3,dy1=y1-y2,dy2=y3-y2,dy3=y0-y1+y2-y3;let g=0,h=0;const det=dx1*dy2-dx2*dy1;if(Math.abs(det)>1e-9&&(Math.abs(dx3)>1e-6||Math.abs(dy3)>1e-6)){g=(dx3*dy2-dx2*dy3)/det;h=(dx1*dy3-dx3*dy1)/det}return[x1-x0+g*x1,x3-x0+h*x3,x0,y1-y0+g*y1,y3-y0+h*y3,y0,g,h,1]}
+function inv3(m){const[a,b,c,d,e,f,g,h,i]=m;const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,D=-(b*i-c*h),E=a*i-c*g,F=-(a*h-b*g),G=b*f-c*e,H=-(a*f-c*d),I=a*e-b*d,det=a*A+b*B+c*C;return[A/det,D/det,G/det,B/det,E/det,H/det,C/det,F/det,I/det]}
+function ebScale(){const ph=EB.ph,s=Math.min(1,1100/ph.w),cv=$('#ebCv'),W=Math.round(ph.w*s),H=Math.round(ph.h*s);if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}return{s,W,H}}
+function ebPrep(){const ph=EB.ph;ph.quad=ph.quad||quadDefault(ph);const{s,W,H}=ebScale();const c=$('#ebCv').getContext('2d',{willReadFrequently:true});c.drawImage(EB.img,0,0,W,H);const src=c.getImageData(0,0,W,H).data;
+ const lum=new Float32Array(W*H);for(let i=0,j=0;i<lum.length;i++,j+=4)lum[i]=(.2126*src[j]+.7152*src[j+1]+.0722*src[j+2])/255;
+ const q=ph.quad.map(([x,y])=>[x*s,y*s]),M=inv3(homog(q)),xs=q.map(p=>p[0]),ys=q.map(p=>p[1]);
+ const x0=Math.max(1,Math.floor(Math.min(...xs))),x1=Math.min(W-2,Math.ceil(Math.max(...xs))),y0=Math.max(1,Math.floor(Math.min(...ys))),y1=Math.min(H-2,Math.ceil(Math.max(...ys)));
+ const cap=Math.max(1,(x1-x0+1)*(y1-y0+1));const I=new Int32Array(cap),U=new Float32Array(cap),V=new Float32Array(cap);let n=0;
+ for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const w=M[6]*x+M[7]*y+M[8],u=(M[0]*x+M[1]*y+M[2])/w,v=(M[3]*x+M[4]*y+M[5])/w;if(u>=0&&u<=1&&v>=0&&v<=1){I[n]=y*W+x;U[n]=u;V[n]=v;n++}}
+ const L=new Float32Array(n),E=new Float32Array(n),D=new Float32Array(n);let sum=0;
+ for(let k=0;k<n;k++){const i=I[k];L[k]=lum[i];sum+=L[k];const gx=lum[i-W+1]+2*lum[i+1]+lum[i+W+1]-lum[i-W-1]-2*lum[i-1]-lum[i+W-1],gy=lum[i+W-1]+2*lum[i+W]+lum[i+W+1]-lum[i-W-1]-2*lum[i-W]-lum[i-W+1];E[k]=clamp01((Math.hypot(gx,gy)-.12)*2.2)}
+ const m=n?sum/n:.5;for(let k=0;k<n;k++)D[k]=clamp01((m*.65-L[k])/(m*.45+.01));
+ const dd=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);let asp=(dd(q[0],q[1])+dd(q[3],q[2]))/Math.max(1,dd(q[0],q[3])+dd(q[1],q[2]));const Lc=pnum(P.calc.L),Hc=pnum(P.calc.H);if(Lc>0&&Hc>0)asp=Lc/Hc;
+ const TW=480,TH=Math.max(80,Math.min(900,Math.round(TW/asp))),tex=document.createElement('canvas');tex.width=TW;tex.height=TH;
+ EB.prep={W,H,src,I,U,V,L,E,D,n,TW,TH,tctx:tex.getContext('2d',{willReadFrequently:true}),out:c.createImageData(W,H),base:new Uint8ClampedArray(W*H*4)};ebBase()}
+function ebBase(){const pr=EB.prep;if(!pr)return;const nv=num($('#ebNight').value,70)/100,f=.6-.48*nv,s=pr.src,b=pr.base;for(let j=0;j<b.length;j+=4){b[j]=s[j]*f*.8+2;b[j+1]=s[j+1]*f*.88+3;b[j+2]=s[j+2]*f*1.1+8;b[j+3]=255}}
+function ebCurrent(t){const sel=$('#ebSeq').value,prop=P.art.proposal;
+ if(prop&&sel==='chain'){const n=prop.seq.length,Dd=5,i=Math.floor(t/Dd)%n,sq=prop.seq[i];return{key:sq.fx?fxKey(sq.fx.n):'salut',t:t%Dd,label:mmss(sq.t0)+' · '+sq.name+(sq.fx?' · '+sq.fx.n:'')}}
+ if(prop&&sel.startsWith('seq:')){const sq=prop.seq[+sel.slice(4)];if(sq)return{key:sq.fx?fxKey(sq.fx.n):'salut',t,label:mmss(sq.t0)+' · '+sq.name+(sq.fx?' · '+sq.fx.n:'')}}
+ if(sel.startsWith('fx:')){const nm=sel.slice(3);return{key:fxKey(nm),t,label:nm}}
+ return{key:'wash',t,label:'Lavis de palette'}}
+function ebTime(){return EB.playing?(performance.now()-EB.t0)/1000:EB.tPause}
+function ebFrame(){const pr=EB.prep;if(!pr||EB.mode!=='sim')return;const cur=EB.cur=ebCurrent(ebTime()),c=pr.tctx;c.globalCompositeOperation='source-over';c.clearRect(0,0,pr.TW,pr.TH);const o=(FXR[cur.key]||FXR.wash)(c,pr.TW,pr.TH,cur.t,EB.pal)||{};
+ const td=c.getImageData(0,0,pr.TW,pr.TH).data,out=pr.out.data;out.set(pr.base);
+ const K=num($('#ebPow').value,100)/100*EB.refl,eA=o.edgeAmt||0,ec=o.edgeCol||[255,255,255],dA=o.darkAmt||0,dc=o.darkCol||[255,190,110],gate=o.gate,TW=pr.TW,TWm=TW-1,THm=pr.TH-1,{I,U,V,L,E,D}=pr;
+ for(let k=0;k<pr.n;k++){const u=U[k],v=V[k],ti=(((v*THm)|0)*TW+((u*TWm)|0))*4,a=td[ti+3]/255,m=(.22+.95*L[k])*K;let e=E[k]*eA;if(e&&gate)e*=gate(u,v);const dk=D[k]*dA,i=I[k]*4;
+  out[i]+=(td[ti]*a+ec[0]*e+dc[0]*dk)*m;out[i+1]+=(td[ti+1]*a+ec[1]*e+dc[1]*dk)*m;out[i+2]+=(td[ti+2]*a+ec[2]*e+dc[2]*dk)*m}
+ const ctx=$('#ebCv').getContext('2d');ctx.putImageData(pr.out,0,0);
+ const fs=Math.max(12,pr.W/62);ctx.font=`600 ${fs}px "Avenir Next",system-ui,sans-serif`;ctx.textBaseline='middle';ctx.textAlign='left';const lw=ctx.measureText(cur.label).width;ctx.fillStyle='rgba(8,11,26,.72)';ctx.fillRect(fs*.6,pr.H-fs*2.4,lw+fs*1.2,fs*1.8);ctx.fillStyle='#F0B44C';ctx.fillText(cur.label,fs*1.2,pr.H-fs*1.5);
+ ctx.font=`500 ${fs*.8}px "Avenir Next",system-ui,sans-serif`;ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillText('Ébauche indicative · '+(P.name||''),pr.W-fs*.8,fs*1.1);
+ if(EB.playing&&curTab==='ebauche')EB.raf=requestAnimationFrame(ebFrame);else EB.raf=0}
+function ebStop(){if(EB.raf)cancelAnimationFrame(EB.raf);EB.raf=0}
+function ebDrawCadre(){const{s,W,H}=ebScale(),c=$('#ebCv').getContext('2d');const q=(EB.ph.quad=EB.ph.quad||quadDefault(EB.ph)).map(([x,y])=>[x*s,y*s]);c.drawImage(EB.img,0,0,W,H);c.fillStyle='rgba(5,7,15,.45)';c.beginPath();c.rect(0,0,W,H);c.moveTo(q[0][0],q[0][1]);for(let i=3;i>=0;i--)c.lineTo(q[i][0],q[i][1]);c.closePath();c.fill('evenodd');
+ c.strokeStyle='#F0B44C';c.lineWidth=Math.max(2,W/400);c.beginPath();q.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.stroke();
+ const r=Math.max(12,W/55);q.forEach((p,i)=>{c.fillStyle='#F0B44C';c.beginPath();c.arc(p[0],p[1],r,0,7);c.fill();c.fillStyle='#1A1405';c.font=`700 ${r*1.1}px system-ui,sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText(i+1,p[0],p[1]+1)})}
+function ebRefresh(){ebStop();if(!EB.ph||!EB.img)return;$('#ebHint').textContent=EB.mode==='cadre'?'Faites glisser les 4 poignées sur les angles de la surface projetée : 1 haut gauche, 2 haut droit, 3 bas droit, 4 bas gauche. Le cadre est enregistré avec la photo.':'La vidéo épouse la perspective du cadre et révèle le relief réel de la photo. Réglez la nuit et la puissance, puis capturez les images utiles au rapport.';
+ if(EB.mode==='cadre'){ebDrawCadre();return}if(!EB.prep)ebPrep();EB.t0=performance.now()-EB.tPause*1000;ebFrame()}
+function ebSelect(id){const ph=P.photos.find(p=>p.id===id);if(!ph)return;EB.ph=ph;P.ebPhoto=id;EB.prep=null;EB.img=null;$$('#ebThumbs button').forEach(b=>b.classList.toggle('on',b.dataset.eb===id));const img=new Image();img.onload=()=>{if(EB.ph!==ph)return;EB.img=img;ebRefresh()};img.src=ph.data}
+function renderEbGal(){$('#ebGal').innerHTML=(P.ebauches||[]).length?P.ebauches.map(e=>`<div class="ph"><img src="${e.data}" alt=""><div>${esc(e.label)}<br><button class="btn sm danger" data-ebdel="${e.id}" style="margin-top:6px">Retirer</button></div></div>`).join(''):'<p class="empty">Aucune image capturée.</p>'}
+R.ebauche=()=>{const prop=P.art.proposal,pal=(P.art.palette||(prop?prop.palette:(TONES[P.art.tone]||TONES.contemplatif).palette)).map(x=>hex2rgb(x[1]));EB.pal=pal.sort((a,b)=>(b[0]*.3+b[1]*.59+b[2]*.11)-(a[0]*.3+a[1]*.59+a[2]*.11));
+ EB.refl=Math.min(1.25,Math.max(.3,((MAT[P.calc.materiau]||MAT.calcaire)[1])*1.6));
+ const sel=$('#ebSeq'),prev=sel.value;let o='';if(prop){o+='<option value="chain">Déroulé complet enchaîné (5 s par séquence)</option><optgroup label="Séquences de la piste">'+prop.seq.map((sq,i)=>`<option value="seq:${i}">${mmss(sq.t0)} · ${esc(sq.name)}${sq.fx?' · '+esc(sq.fx.n):''}</option>`).join('')+'</optgroup>'}
+ o+='<optgroup label="Effets libres">'+Object.keys(FX_KEY).map(n=>`<option value="fx:${esc(n)}">${esc(n)}</option>`).join('')+'</optgroup>';sel.innerHTML=o;if(prev&&[...sel.options].some(x=>x.value===prev))sel.value=prev;
+ const v=computeVideo();let note=prop?`Palette et déroulé de la piste « ${prop.title} ».`:'Aucune piste artistique : palette de la tonalité choisie. Générez une piste dans Artistique pour simuler le déroulé.';
+ if(v&&!v.err&&!EB.powSet){$('#ebPow').value=Math.round(Math.min(160,Math.max(40,v.Lum/v.target*100)));EB.powSet=1;note+=` Puissance réglée d’après le dimensionnement (${fmt(v.Lum,0)} cd/m² pour ${v.target} visés).`}
+ $('#ebNote').textContent=note;
+ const list=[...P.photos].sort((a,b)=>(a.zone==='facade'?0:1)-(b.zone==='facade'?0:1));
+ $('#ebThumbs').innerHTML=list.length?list.map(p=>`<button data-eb="${p.id}" title="${esc(p.caption||ZONES[p.zone])}"><img src="${p.data}" alt=""></button>`).join(''):'<p class="empty" style="flex:1">Prenez d’abord des photos dans Repérage, de préférence la façade bien de face.</p>';
+ $('#ebMain').hidden=!list.length;renderEbGal();
+ if(list.length){const id=P.ebPhoto&&P.photos.some(p=>p.id===P.ebPhoto)?P.ebPhoto:list[0].id;if(EB.ph&&EB.ph.id===id&&EB.img){EB.prep=null;$$('#ebThumbs button').forEach(b=>b.classList.toggle('on',b.dataset.eb===id));ebRefresh()}else ebSelect(id)}};
+$('#ebThumbs').addEventListener('click',e=>{const b=e.target.closest('[data-eb]');if(b){ebSelect(b.dataset.eb);scheduleSave()}});
+$('#ebMode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;EB.mode=b.dataset.m;$$('#ebMode button').forEach(x=>x.classList.toggle('on',x===b));ebRefresh()});
+$('#ebPlay').onclick=()=>{if(EB.playing){EB.tPause=ebTime();EB.playing=false;$('#ebPlay').textContent='Lecture'}else{EB.playing=true;$('#ebPlay').textContent='Pause'}ebRefresh()};
+$('#ebReset').onclick=()=>{if(!EB.ph)return;EB.ph.quad=quadDefault(EB.ph);EB.prep=null;scheduleSave();ebRefresh()};
+$('#ebSeq').onchange=()=>{EB.tPause=0;ebRefresh()};
+$('#ebNight').oninput=()=>{ebBase();if(!EB.playing)ebFrame()};
+$('#ebPow').oninput=()=>{if(!EB.playing)ebFrame()};
+$('#ebSnap').onclick=()=>{if(EB.mode!=='sim'||!EB.prep){toast('Passez en mode Simuler pour capturer.');return}if(!EB.playing)ebFrame();P.ebauches.push({id:uid(),photo:EB.ph.id,label:EB.cur?EB.cur.label:'',data:$('#ebCv').toDataURL('image/jpeg',.85),date:Date.now()});scheduleSave();renderEbGal();toast('Image ajoutée au rapport')};
+$('#ebGal').addEventListener('click',e=>{const b=e.target.closest('[data-ebdel]');if(!b)return;P.ebauches=P.ebauches.filter(x=>x.id!==b.dataset.ebdel);scheduleSave();renderEbGal()});
+(()=>{const cv=$('#ebCv');const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height,r.width/cv.width]};
+ cv.addEventListener('pointerdown',e=>{if(EB.mode!=='cadre'||!EB.ph)return;const[x,y,k]=pt(e),{s}=ebScale();let best=-1,bd=48/k;EB.ph.quad.forEach(([qx,qy],i)=>{const d=Math.hypot(qx*s-x,qy*s-y);if(d<bd){bd=d;best=i}});if(best<0)return;e.preventDefault();cv.setPointerCapture(e.pointerId);EB.drag=best});
+ cv.addEventListener('pointermove',e=>{if(EB.drag<0)return;const[x,y]=pt(e),{s}=ebScale();EB.ph.quad[EB.drag]=[Math.max(0,Math.min(EB.ph.w,x/s)),Math.max(0,Math.min(EB.ph.h,y/s))];ebDrawCadre()});
+ const end=()=>{if(EB.drag<0)return;EB.drag=-1;EB.prep=null;scheduleSave()};cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end)})();
+
+
+/* ---- images de référence ---- */
+function kmeansPalette(dataUrl,k=5){return new Promise(res=>{const img=new Image();img.onload=()=>{const N=72,c=document.createElement('canvas');c.width=N;c.height=Math.max(1,Math.round(N*img.height/img.width));const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height).data,px=[];for(let i=0;i<d.length;i+=4)if(d[i+3]>200)px.push([d[i],d[i+1],d[i+2]]);
+ if(!px.length){res([]);return}let cent=[px[0]];while(cent.length<k){let best=null,bd=-1;for(const q of px){const m=Math.min(...cent.map(c0=>(c0[0]-q[0])**2+(c0[1]-q[1])**2+(c0[2]-q[2])**2));if(m>bd){bd=m;best=q}}cent.push(best.slice())}
+ let cnt=new Array(k).fill(0);for(let it=0;it<10;it++){const sum=cent.map(()=>[0,0,0]);cnt=new Array(k).fill(0);for(const q of px){let bi=0,bd=Infinity;cent.forEach((c0,i)=>{const dd=(c0[0]-q[0])**2+(c0[1]-q[1])**2+(c0[2]-q[2])**2;if(dd<bd){bd=dd;bi=i}});sum[bi][0]+=q[0];sum[bi][1]+=q[1];sum[bi][2]+=q[2];cnt[bi]++}cent=cent.map((c0,i)=>cnt[i]?sum[i].map(v=>Math.round(v/cnt[i])):c0)}
+ const hex=c0=>'#'+c0.map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();res(cent.map((c0,i)=>[c0,cnt[i]]).sort((a,b)=>b[1]-a[1]).map(([c0],i)=>['Couleur '+(i+1),hex(c0)]))};img.onerror=()=>res([]);img.src=dataUrl})}
+function renderRefs(){const A=P.art,refs=A.refs||[];$('#refGrid').innerHTML=refs.length?refs.map(r=>`<div class="ph"><img src="${r.data}" alt=""><div><span class="badge">${esc(REFCATS[r.cat]||'')}</span>${r.id===A.paletteRef?' <span class="badge">palette utilisée</span>':''}<input data-refcap="${r.id}" value="${esc(r.caption||'')}" placeholder="Légende, source, intention…" style="margin:6px 0;padding:8px 10px"><div class="row"><button class="btn sm" data-refpal="${r.id}">Prendre sa palette</button><button class="btn sm danger" data-refdel="${r.id}">Retirer</button></div></div></div>`).join(''):'<p class="empty">Aucune image de référence.</p>';
+ const custom=!!A.palette;$('#refPalReset').hidden=!custom;$('#refPalNote').innerHTML=custom?'Palette tirée d’une image : '+A.palette.map(([,h])=>`<i style="display:inline-block;width:18px;height:18px;border-radius:4px;vertical-align:middle;background:${h};border:1px solid var(--line)"></i>`).join(' '):''}
+$('#refIn').onchange=async e=>{const files=[...e.target.files];e.target.value='';const cat=$('#refCat').value;for(const f of files){try{const r=await compress(f,1400,.8);P.art.refs.push({id:uid(),cat,caption:'',data:r.data,w:r.w,h:r.h,date:Date.now()})}catch(_){toast('Image illisible : '+f.name)}}scheduleSave();renderRefs()};
+$('#refGrid').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.refdel){P.art.refs=P.art.refs.filter(r=>r.id!==b.dataset.refdel);if(P.art.paletteRef===b.dataset.refdel){P.art.palette=null;P.art.paletteRef=null;applyPalette()}scheduleSave();renderRefs()}
+ if(b.dataset.refpal){const r=P.art.refs.find(x=>x.id===b.dataset.refpal);const pal=await kmeansPalette(r.data);if(pal.length<3){toast('Palette impossible à extraire');return}P.art.palette=pal;P.art.paletteRef=r.id;applyPalette();scheduleSave();renderRefs();toast('Palette appliquée à la piste et à l’ébauche')}});
+$('#refGrid').addEventListener('input',e=>{const i=e.target.closest('[data-refcap]');if(!i)return;e.stopPropagation();const r=P.art.refs.find(x=>x.id===i.dataset.refcap);if(r){r.caption=i.value;scheduleSave()}});
+$('#refPalReset').onclick=()=>{P.art.palette=null;P.art.paletteRef=null;applyPalette();scheduleSave();renderRefs()};
+function applyPalette(){const pr=P.art.proposal;if(pr){const tn=TONES[P.art.tone]||TONES.contemplatif;pr.palette=P.art.palette||tn.palette;pr.paletteSrc=P.art.palette?'image de référence':tn.label;renderProposal()}}
 
 /* ================= rapport ================= */
 async function buildReport(withPhotos){const st=P.site,V=verdict(),A=alertsList(),v=computeVideo(),s=computeSon(),e=computeNrj(v),N=nightInfo();
@@ -866,6 +1012,8 @@ async function buildReport(withPhotos){const st=P.site,V=verdict(),A=alertsList(
  if(P.mesures.length)h+=`<section><h2>Relevés</h2><table>${P.mesures.map(m=>`<tr><th>${esc(m.label)}</th><td>${esc(typeof m.value==='number'?fmt(m.value,2):m.value)} ${esc(m.unit)} <small>(${esc(m.source||'')})</small></td></tr>`).join('')}</table></section>`;
  if(P.scans.length)h+=`<section><h2>Scans et fichiers</h2><ul>${P.scans.map(x=>`<li>${esc(x.name)}${x.note?' : '+esc(x.note):''}</li>`).join('')}</ul></section>`;
  if(P.art.proposal)h+=`<section><h2>Piste artistique</h2>${propHTML(P.art.proposal)}</section>`;
+ if(P.art.refs&&P.art.refs.length){h+='<section><h2>Références visuelles</h2>';if(withPhotos)h+='<div class="pp">'+P.art.refs.map(r=>`<figure><img src="${r.data}" alt=""><figcaption><b>${esc(REFCATS[r.cat]||'')}</b>${r.caption?' : '+esc(r.caption):''}</figcaption></figure>`).join('')+'</div>';else h+=`<p>${P.art.refs.length} image(s), incluses à l’impression.</p>`;h+='</section>'}
+ if(P.ebauches&&P.ebauches.length){h+='<section><h2>Ébauches de mapping</h2>';if(withPhotos)h+='<div class="pp">'+P.ebauches.map(e=>`<figure><img src="${e.data}" alt=""><figcaption>${esc(e.label)}</figcaption></figure>`).join('')+'</div>';else h+=`<p>${P.ebauches.length} image(s), incluses à l’impression.</p>`;h+='</section>'}
  if(P.photos.length){h+='<section><h2>Photos</h2>';if(withPhotos){h+='<div class="pp">';for(const z of Object.keys(ZONES))for(const p of P.photos.filter(x=>x.zone===z)){const d=(p.ann.lines.length||p.ann.pins.length||p.ann.ref)?await renderAnnotated(p):p.data;h+=`<figure><img src="${d}" alt=""><figcaption><b>${esc(ZONES[p.zone])}</b>${p.caption?' : '+esc(p.caption):''}</figcaption></figure>`}h+='</div>'}else h+=`<p>${P.photos.length} photo(s), incluses à l’impression.</p>`;h+='</section>'}
  return h}
 R.rapport=async()=>{$('#repPreview').innerHTML=await buildReport(false)};
