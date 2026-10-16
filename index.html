@@ -468,7 +468,7 @@ function shuffle(arr,r){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=M
 function download(name,blob){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 
 /* ================= référentiels ================= */
-const TYPES={facade:'Mapping façade extérieure',sonlum:'Son et lumière',interieur:'Mapping intérieur / voûtes',deamb:'Parcours nocturne / déambulation',objet:'Mapping objet / scénographie',naturel:'Mapping sur site naturel'};
+const TYPES={facade:'Mapping façade extérieure',sonlum:'Son et lumière',interieur:'Mapping intérieur / voûtes',deamb:'Parcours nocturne / déambulation',objet:'Mapping objet / scénographie',naturel:'Mapping sur site naturel',hybride:'Show hybride',laser:'Spectacle laser'};
 const STATUT={non:'Non protégé',inscrit:'Inscrit monument historique',classe:'Classé monument historique',abords:'Abords MH / site patrimonial remarquable'};
 const MAT={blanc:['Enduit blanc / chaux',.75],pierreblanche:['Pierre blanche / marbre clair',.65],calcaire:['Pierre calcaire claire',.55],gres:['Grès / pierre dorée',.40],beton:['Béton brut',.40],bois:['Bois',.30],brique:['Brique rouge',.25],schiste:['Pierre sombre / schiste / galets',.15],toile:['Toile ou écran blanc',.85],vegetal:['Végétation / arbres',.10]};
 const AMB={tressombre:['Site très sombre, sans éclairage',15],sombre:['Éclairage public coupé',25],residuel:['Éclairage résiduel (rue, monument voisin)',40],urbain:['Centre-ville éclairé, vitrines',60]};
@@ -784,6 +784,8 @@ function alertsList(){const a=[],v=computeVideo(),s=computeSon(),e=computeNrj(v)
  if(N&&N.start&&N.start.getHours()>=22)a.push(['info','Nuit nautique à '+hm(N.start)+' : spectacle tardif, '+N.seances+' séance(s) possible(s).']);
  if(N&&N.seances===0)a.push(['bad','Aucune séance ne tient entre la tombée de la nuit et la fin autorisée.']);
  if(!N)a.push(['info','Coordonnées absentes : horaires de nuit non évalués.']);
+ if(st.type==='laser'||st.type==='hybride')a.push(['warn','Laser : faire calculer la zone d’exposition du public par un opérateur qualifié, aucun faisceau à hauteur des yeux, et prévenir l’aviation civile pour tout faisceau dirigé vers le ciel.']);
+ if(st.type==='hybride')a.push(['info','Show hybride : une conduite unique synchronisée (timecode) entre vidéo, lumière, son et laser, avec une répétition générale de nuit.']);
  if(num(st.public,0)>=1500)a.push(['info','Jauge de '+st.public+' personnes : dossier de sécurité et déclaration renforcés.']);
  if(!P.photos.length)a.push(['info','Aucune photo de repérage.']);
  return a}
@@ -830,6 +832,8 @@ function generate(){const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEME
  const lum=['Mise en lumière d’ambiance (projecteurs LED RGBW) pour l’accueil et la sortie du public.'];
  if((A.elements||[]).some(k=>['tours','creneaux'].includes(k)))lum.push('Asservis à faisceau serré sur tours et créneaux, en relais des effets vidéo.');
  if(st.type==='sonlum'||st.type==='deamb')lum.push('Éclairage des cheminements et découpes sur les éléments non projetables (arbres, statues, fontaines).');
+ if(st.type==='laser'||st.type==='hybride')lum.push('Laser : faisceaux aériens au-dessus du public (brouillard nécessaire), graphismes et contours tracés sur l’architecture en relais de la vidéo.');
+ if(st.type==='hybride')lum.push('Show hybride : écrire chaque tableau en distribuant les rôles entre vidéo, lumière, laser et son, plutôt que de tout utiliser en permanence.');
  if(st.type==='interieur')lum.push('Intérieur : maîtriser les retours de lumière sur vitraux, dorures et peintures murales.');
  lum.push('Brumisateur léger pour matérialiser les faisceaux, à écarter si détection incendie ou intérieur protégé sans accord.');
  const pitch=`${TYPES[st.type]||'Spectacle'} de ${fmt(dur/60,0)} minutes, tonalité ${tn.label.toLowerCase()}, autour du thème « ${th.label.toLowerCase()} »${st.lieu?', conçu pour '+st.lieu:''}. ${elFx.length?'L’écriture s’appuie sur '+[...new Set(elFx.map(f=>f[2].toLowerCase()))].slice(0,3).join(', ')+' pour que l’architecture reste le premier personnage.':'L’architecture reste le premier personnage : chaque tableau part de ses lignes réelles.'}`;
