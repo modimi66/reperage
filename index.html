@@ -148,6 +148,10 @@ td select{padding:6px 8px;font-size:14px}
 .alerts{list-style:none;padding:0;margin:0}
 .alerts li{padding:8px 0 8px 14px;border-left:3px solid var(--muted);margin-bottom:6px;font-size:.92rem}
 .alerts li.bad{border-color:var(--bad)}.alerts li.warn{border-color:var(--warn)}.alerts li.info{border-color:var(--cyan)}
+/* édition piste */
+.seqed{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--surface2)}
+.seqed .tc{font-family:var(--fc);font-weight:600;color:var(--accent);font-size:1.1rem}
+input[type=color]{padding:2px;height:46px;cursor:pointer}
 /* ébauche */
 .ebthumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .ebthumbs button{flex:0 0 128px;padding:0;border:3px solid transparent;border-radius:10px;overflow:hidden;background:none}
@@ -220,6 +224,11 @@ ul.plain li{margin:4px 0;font-size:.93rem}
     <div class="row" style="margin-bottom:18px">
       <button class="btn primary" id="newBtn">Nouveau repérage</button>
       <span class="btn filebtn">Importer un projet (.json)<input type="file" id="importJson" accept=".json,application/json"></span>
+    </div>
+    <div class="panel">
+      <h3>Transfert iPad ↔ PC par Google Drive</h3>
+      <p class="hint">Sur l’iPad : « Envoyer sur Drive » ouvre le menu Partager, choisissez Drive puis le dossier Repérages mapping. Sur le PC : le fichier est téléchargé, déposez-le dans ce même dossier. Pour récupérer un projet sur l’autre appareil : téléchargez-le depuis le dossier puis « Importer un projet ». Si le projet existe déjà, l’outil propose de le remplacer.</p>
+      <div class="row"><button class="btn primary" id="driveSend">Envoyer le projet ouvert sur Drive</button><a class="btn" href="https://drive.google.com/drive/folders/19etYn3-S7Q3esStC_Ne6h2pRd82U7wXi" target="_blank" rel="noopener">Ouvrir le dossier Drive</a></div>
     </div>
     <div id="plist"></div>
     <div class="panel" style="margin-top:22px">
@@ -447,7 +456,12 @@ ul.plain li{margin:4px 0;font-size:.93rem}
         <label>Puissance vidéo<input type="range" id="ebPow" min="20" max="160" value="100"></label>
       </div>
       <p class="note" id="ebNote"></p>
-      <div class="row" style="margin-top:10px"><button class="btn primary" id="ebSnap">Capturer l’image</button></div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="ebSnap">Capturer l’image</button><button class="btn" id="iaPrep">Préparer un rendu IA</button><span class="btn filebtn">Importer un rendu IA<input type="file" accept="image/*" multiple id="iaIn"></span></div>
+      <details id="iaBox" style="margin-top:12px"><summary>Consigne pour le rendu IA</summary>
+        <p>L’image de l’ébauche vient d’être téléchargée. Envoyez-la à Claude avec cette consigne (déjà copiée) pour un rendu Runway, puis importez le résultat ici. Les rendus peuvent être rangés dans le dossier <a href="https://drive.google.com/drive/folders/1qnkNU7O4UgeVassnu9MnTAAHvahMD2pi" target="_blank" rel="noopener">Drive › Repérages mapping › Rendus IA</a> pour les retrouver sur l’iPad.</p>
+        <textarea id="iaPrompt" readonly style="min-height:150px"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn sm" id="iaCopy">Copier la consigne</button></div>
+      </details>
     </div>
     <div class="panel"><h3>Images capturées</h3><p class="hint">Elles sont ajoutées au rapport de pré-audit.</p><div class="pgrid" id="ebGal"></div></div>
   </section>
@@ -456,7 +470,7 @@ ul.plain li{margin:4px 0;font-size:.93rem}
   <section class="tab" id="t-rapport">
     <h2>Rapport de pré-audit</h2>
     <p class="lead">Synthèse imprimable : choisissez « Enregistrer en PDF » dans la fenêtre d’impression. L’export JSON contient tout le projet, photos comprises.</p>
-    <div class="row" style="margin-bottom:18px"><button class="btn primary" id="printBtn">Imprimer / PDF</button><button class="btn" id="exportBtn">Exporter le projet (.json)</button></div>
+    <div class="row" style="margin-bottom:18px"><button class="btn primary" id="printBtn">Imprimer / PDF</button><button class="btn" id="exportBtn">Exporter le projet (.json)</button><button class="btn" id="driveSend2">Envoyer sur Drive</button></div>
     <div class="panel" id="repPreview"></div>
   </section>
   </main>
@@ -589,6 +603,7 @@ const TONES={
  festif:{label:'Festif',palette:[['Fuchsia','#E2378B'],['Jaune soleil','#F7C531'],['Turquoise','#21B5B0'],['Orange','#F27A2A'],['Violet','#6B3FA0']],rythme:'Coupes sur le temps, boucles courtes, énergie constante.'},
  sacre:{label:'Sacré / solennel',palette:[['Or ancien','#B8893A'],['Pourpre','#5E1F4A'],['Blanc cierge','#F6EEDC'],['Bleu vitrail','#1F4E8C'],['Ombre','#191521']],rythme:'Lent, symétrique, centré sur l’axe de l’édifice.'}
 };
+const DRIVE_URL='https://drive.google.com/drive/folders/19etYn3-S7Q3esStC_Ne6h2pRd82U7wXi';
 const REFCATS={ambiance:'Ambiance',palette:'Couleurs / palette',effet:'Effet / technique',oeuvre:'Œuvre ou spectacle',typo:'Typographie / graphisme',archi:'Architecture / détail',autre:'Autre'};
 const OPTS={REFCATS,TYPES,STATUT,MAT,AMB,RES,ZONES,TARGETS,PUBLICS,
   THEMES:Object.fromEntries(Object.entries(THEMES).map(([k,v])=>[k,v.label])),
@@ -639,7 +654,10 @@ $('#plist').addEventListener('click',async e=>{const b=e.target.closest('button'
  if(b.dataset.dup){const p=await DB.get('projects',b.dataset.dup);const c=JSON.parse(JSON.stringify(p));c.id=uid();c.name=p.name+' (copie)';c.scans=[];c.updated=Date.now();await DB.put('projects',c);R.projets()}
  if(b.dataset.del){const p=await DB.get('projects',b.dataset.del);if(!confirm('Supprimer définitivement « '+p.name+' » ?'))return;for(const s of p.scans||[])await DB.del('files',s.id);await DB.del('projects',p.id);if(P&&P.id===p.id){P=null;updHeader()}R.projets()}});
 $('#newBtn').onclick=async()=>{P=newProject();await saveNow();updHeader();show('site');setTimeout(()=>{const n=$('[data-bind="name"]');n.focus();n.select()},50)};
-$('#importJson').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());if(!p.site||!p.calc)throw 0;if(await DB.get('projects',p.id))p.id=uid();p.scans=[];migrate(p);await DB.put('projects',p);toast('Projet importé');R.projets()}catch(_){toast('Fichier non reconnu : exportez-le depuis cet outil.')}};
+$('#importJson').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;let p;try{p=JSON.parse(await f.text());if(!p.site||!p.calc)throw 0}catch(_){toast('Fichier non reconnu : exportez-le depuis cet outil.');return}
+ const dt=ts=>ts?new Date(ts).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'?';const ex=await DB.get('projects',p.id);let replaced=false;
+ if(ex){if(confirm(`« ${ex.name} » existe déjà sur cet appareil.\nSur cet appareil : modifié le ${dt(ex.updated)}\nDans le fichier : modifié le ${dt(p.updated)}${(p.updated||0)<(ex.updated||0)?'\n\nAttention : le fichier est plus ancien que la version de cet appareil.':''}\n\nOK : remplacer par le fichier.\nAnnuler : importer comme copie.`)){p.scans=ex.scans||[];replaced=true}else{p.id=uid();p.name=(p.name||'Repérage')+' (copie)';p.scans=[]}}else p.scans=[];
+ migrate(p);await DB.put('projects',p);if(replaced&&P&&P.id===p.id){P=p;updHeader()}toast(replaced?'Projet remplacé par la version du fichier':'Projet importé');R.projets()};
 
 /* ================= site ================= */
 function card(deg){const n=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];return n[Math.round(((deg%360)+360)%360/22.5)%16]}
@@ -845,7 +863,7 @@ function renderChips(){const defs={styles:Object.fromEntries(Object.entries(STYL
  $$('[data-chips]').forEach(box=>{const key=box.dataset.chips,sel=P.art[key]||[];box.innerHTML=Object.entries(defs[key]).map(([k,l])=>`<button class="chip ${sel.includes(k)?'on':''}" data-k="${k}" aria-pressed="${sel.includes(k)}">${l}</button>`).join('')})}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-chips] .chip');if(!b||!P)return;const key=b.parentElement.dataset.chips;const arr=P.art[key]=P.art[key]||[];const i=arr.indexOf(b.dataset.k);if(i>=0)arr.splice(i,1);else arr.push(b.dataset.k);b.classList.toggle('on',i<0);b.setAttribute('aria-pressed',i<0);scheduleSave()});
 function mmss(s){s=Math.round(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
-function generate(){const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEMES.histoire,tn=TONES[A.tone]||TONES.contemplatif,st=P.site,dur=Math.max(3,num(st.duree,12))*60;
+function generate(){propEdit=false;const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEMES.histoire,tn=TONES[A.tone]||TONES.contemplatif,st=P.site,dur=Math.max(3,num(st.duree,12))*60;
  const elFx=[];(A.elements||[]).forEach(k=>{const e=ELEMENTS[k];if(e)e[1].forEach(f=>elFx.push([f[0],f[1],e[0]]))});
  const pool=shuffle(elFx,r).concat(shuffle(GENERIC_FX.map(f=>[f[0],f[1],'']),r));
  const parts=[['Ouverture','Noir complet, puis révélation au trait : les arêtes de l’architecture se dessinent avant toute image.',.08,['Révélation au trait','la façade se dessine en lignes de lumière','']]];
@@ -875,7 +893,7 @@ function generate(){const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEME
  lum.push('Brumisateur léger pour matérialiser les faisceaux, à écarter si détection incendie ou intérieur protégé sans accord.');
  const pitch=`${TYPES[st.type]||'Spectacle'} de ${fmt(dur/60,0)} minutes, tonalité ${tn.label.toLowerCase()}, autour du thème « ${th.label.toLowerCase()} »${st.lieu?', conçu pour '+st.lieu:''}. ${elFx.length?'L’écriture s’appuie sur '+[...new Set(elFx.map(f=>f[2].toLowerCase()))].slice(0,3).join(', ')+' pour que l’architecture reste le premier personnage.':'L’architecture reste le premier personnage : chaque tableau part de ses lignes réelles.'}`;
  A.proposal={title,pitch,theme:th.label,tone:tn.label,palette:A.palette||tn.palette,paletteSrc:A.palette?'image de référence':tn.label,rythme:tn.rythme,music:th.music,seq,styleNotes,vig,lum,idees:A.idees||'',fxAll:elFx.map(f=>({n:f[0],d:f[1],el:f[2]})),date:Date.now()};scheduleSave();renderProposal()}
-function propHTML(p){return`<p class="note">Variante générée le ${new Date(p.date).toLocaleDateString('fr-FR')} à ${hm(new Date(p.date))}</p><h3 class="title">${esc(p.title)}</h3><p class="pitch">${esc(p.pitch)}</p>${p.idees?`<p class="note">À intégrer : ${esc(p.idees)}</p>`:''}
+function propHTML(p){return`<p class="note">${p.edited?'Piste retravaillée le '+new Date(p.editedAt||p.date).toLocaleDateString('fr-FR')+' à '+hm(new Date(p.editedAt||p.date)):'Variante générée le '+new Date(p.date).toLocaleDateString('fr-FR')+' à '+hm(new Date(p.date))}</p><h3 class="title">${esc(p.title)}</h3><p class="pitch">${esc(p.pitch)}</p>${p.idees?`<p class="note">À intégrer : ${esc(p.idees)}</p>`:''}
  <h4>Palette (${esc(p.paletteSrc||p.tone)})</h4><div class="sw">${p.palette.map(([n,c])=>`<div><i style="background:${c}"></i><span>${n}<br>${c}</span></div>`).join('')}</div>
  <p class="note">Rythme : ${esc(p.rythme)}<br>Musique : ${esc(p.music)}</p>
  <h4>Déroulé</h4>${p.seq.map(s=>`<div class="seq"><div class="tc">${mmss(s.t0)}</div><div><b>${esc(s.name)}</b>${s.txt?`<p>${esc(s.txt)}</p>`:''}${s.fx?`<p class="fx">Effet : ${esc(s.fx.n)}, ${esc(s.fx.d)}${s.fx.el?' ('+esc(s.fx.el.toLowerCase())+')':''}.</p>`:''}</div></div>`).join('')}
@@ -883,10 +901,37 @@ function propHTML(p){return`<p class="note">Variante générée le ${new Date(p.
  ${p.styleNotes.length?`<h4>Lecture du style</h4><ul class="plain">${p.styleNotes.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:''}
  <h4>Lumière complémentaire</h4><ul class="plain">${p.lum.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
  <h4>Points de vigilance</h4><ul class="plain">${p.vig.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`}
-function renderProposal(){const p=P.art.proposal;$('#propOut').innerHTML=p?`<div class="panel prop">${propHTML(p)}</div>`:''}
+let propEdit=false;
+const FXDESC=(()=>{const m={'Révélation au trait':{d:'la façade se dessine en lignes de lumière',el:''},'Salut / mise en valeur':{d:'éclairage de mise en valeur de l’édifice',el:''}};Object.values(ELEMENTS).forEach(([lab,fx])=>fx.forEach(([n,d])=>m[n]={d,el:lab}));GENERIC_FX.forEach(([n,d])=>m[n]={d,el:''});return m})();
+function confirmReplaceProp(){const p=P.art.proposal;return!(p&&p.edited)||confirm('La piste actuelle a été retravaillée. La remplacer par une nouvelle proposition ?')}
+function recalcSeq(p){let t=0;p.seq.forEach(s=>{if(s.dur==null)s.dur=Math.round(s.t1-s.t0);s.dur=Math.max(1,Math.round(num(s.dur,30)));s.t0=t;s.t1=t+s.dur;t+=s.dur});return t}
+function markEdited(){const p=P.art.proposal;p.edited=true;p.editedAt=Date.now();scheduleSave()}
+function propEditHTML(p){const tot=recalcSeq(p),prev=num(P.site.duree,0)*60,fxOpts=sel=>'<option value="">Aucun effet</option>'+Object.keys(FXDESC).map(n=>`<option ${sel===n?'selected':''}>${esc(n)}</option>`).join('');
+ return`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Modifier la piste</h3><button class="btn primary" id="propDone">Terminer</button></div>
+ <div class="grid" style="margin-top:12px"><label class="full">Titre<input data-pe="title" value="${esc(p.title)}"></label><label class="full">Intention<textarea data-pe="pitch">${esc(p.pitch)}</textarea></label><label class="full">Musique et son<textarea data-pe="music" style="min-height:60px">${esc(p.music)}</textarea></label><label class="full">Rythme du montage<input data-pe="rythme" value="${esc(p.rythme)}"></label></div>
+ <h4>Palette</h4><div class="row">${p.palette.map((c,i)=>`<label style="width:96px">${esc(c[0])}<input type="color" data-pcol="${i}" value="${esc(c[1]).toLowerCase()}"></label>`).join('')}</div>
+ <h4>Séquences <span class="note" id="seqTot">· durée totale ${mmss(tot)}${prev?' pour '+mmss(prev)+' prévues':''}</span></h4>
+ ${p.seq.map((s,i)=>`<div class="seqed"><div class="row" style="justify-content:space-between"><span class="tc" data-tc="${i}">${mmss(s.t0)}</span><div class="row"><button class="btn sm" data-smove="${i}" data-dir="-1" ${i?'':'disabled'}>Monter</button><button class="btn sm" data-smove="${i}" data-dir="1" ${i<p.seq.length-1?'':'disabled'}>Descendre</button><button class="btn sm danger" data-sdelq="${i}">Supprimer</button></div></div>
+  <div class="grid" style="margin-top:8px"><label class="full">Nom<input data-se="${i}" data-k="name" value="${esc(s.name)}"></label><label>Durée (secondes)<input data-se="${i}" data-k="dur" inputmode="numeric" value="${s.dur}"></label><label>Effet<select data-se="${i}" data-k="fx">${fxOpts(s.fx&&s.fx.n)}</select></label><label class="full">Contenu<textarea data-se="${i}" data-k="txt" style="min-height:60px">${esc(s.txt)}</textarea></label></div></div>`).join('')}
+ <button class="btn" id="seqAdd">Ajouter une séquence</button>`}
+function renderProposal(){const p=P.art.proposal;if(!p){$('#propOut').innerHTML='';return}$('#propOut').innerHTML=`<div class="panel prop">${propEdit?propEditHTML(p):propHTML(p)+'<div class="row" style="margin-top:16px"><button class="btn primary" id="propEditBtn">Modifier la piste</button></div>'}</div>`}
+$('#propOut').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!P.art.proposal)return;const p=P.art.proposal;
+ if(b.id==='propEditBtn'){propEdit=true;recalcSeq(p);renderProposal();return}
+ if(b.id==='propDone'){propEdit=false;renderProposal();return}
+ if(b.id==='seqAdd'){p.seq.push({name:'Nouvelle séquence',txt:'',dur:60,fx:null});recalcSeq(p);markEdited();renderProposal();return}
+ if(b.dataset.smove){const i=+b.dataset.smove,j=i+ +b.dataset.dir;if(j<0||j>=p.seq.length)return;[p.seq[i],p.seq[j]]=[p.seq[j],p.seq[i]];recalcSeq(p);markEdited();renderProposal();return}
+ if(b.dataset.sdelq){if(!confirm('Supprimer cette séquence ?'))return;p.seq.splice(+b.dataset.sdelq,1);recalcSeq(p);markEdited();renderProposal()}});
+function onPropField(e){const el=e.target,p=P&&P.art.proposal;if(!p||!propEdit)return;
+ if(el.dataset.pe){e.stopPropagation();p[el.dataset.pe]=el.value;markEdited();return}
+ if(el.dataset.pcol){e.stopPropagation();p.palette[+el.dataset.pcol][1]=el.value.toUpperCase();p.paletteSrc='personnalisée';markEdited();return}
+ if(el.dataset.se){e.stopPropagation();const s=p.seq[+el.dataset.se],k=el.dataset.k;
+  if(k==='fx'){const n=el.value;s.fx=n?{n,d:(FXDESC[n]||{}).d||'',el:(FXDESC[n]||{}).el||''}:null}
+  else if(k==='dur'){s.dur=el.value;const tot=recalcSeq(p),prev=num(P.site.duree,0)*60;p.seq.forEach((x,i)=>{const t=$(`[data-tc="${i}"]`);if(t)t.textContent=mmss(x.t0)});$('#seqTot').textContent=`· durée totale ${mmss(tot)}${prev?' pour '+mmss(prev)+' prévues':''}`}
+  else s[k]=el.value;markEdited()}}
+$('#propOut').addEventListener('input',onPropField);$('#propOut').addEventListener('change',onPropField);
 R.artistique=()=>{bindAll($('#t-artistique'));renderChips();renderRefs();renderProposal()};
-$('#genBtn').onclick=()=>{generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
-$('#varBtn').onclick=()=>{P.art.seed=(P.art.seed||1)+1;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
+$('#genBtn').onclick=()=>{if(!confirmReplaceProp())return;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
+$('#varBtn').onclick=()=>{if(!confirmReplaceProp())return;P.art.seed=(P.art.seed||1)+1;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
 
 
 /* ================= ébauche ================= */
@@ -955,8 +1000,8 @@ function ebDrawCadre(){const{s,W,H}=ebScale(),c=$('#ebCv').getContext('2d');cons
 function ebRefresh(){ebStop();if(!EB.ph||!EB.img)return;$('#ebHint').textContent=EB.mode==='cadre'?'Faites glisser les 4 poignées sur les angles de la surface projetée : 1 haut gauche, 2 haut droit, 3 bas droit, 4 bas gauche. Le cadre est enregistré avec la photo.':'La vidéo épouse la perspective du cadre et révèle le relief réel de la photo. Réglez la nuit et la puissance, puis capturez les images utiles au rapport.';
  if(EB.mode==='cadre'){ebDrawCadre();return}if(!EB.prep)ebPrep();EB.t0=performance.now()-EB.tPause*1000;ebFrame()}
 function ebSelect(id){const ph=P.photos.find(p=>p.id===id);if(!ph)return;EB.ph=ph;P.ebPhoto=id;EB.prep=null;EB.img=null;$$('#ebThumbs button').forEach(b=>b.classList.toggle('on',b.dataset.eb===id));const img=new Image();img.onload=()=>{if(EB.ph!==ph)return;EB.img=img;ebRefresh()};img.src=ph.data}
-function renderEbGal(){$('#ebGal').innerHTML=(P.ebauches||[]).length?P.ebauches.map(e=>`<div class="ph"><img src="${e.data}" alt=""><div>${esc(e.label)}<br><button class="btn sm danger" data-ebdel="${e.id}" style="margin-top:6px">Retirer</button></div></div>`).join(''):'<p class="empty">Aucune image capturée.</p>'}
-R.ebauche=()=>{const prop=P.art.proposal,pal=(P.art.palette||(prop?prop.palette:(TONES[P.art.tone]||TONES.contemplatif).palette)).map(x=>hex2rgb(x[1]));EB.pal=pal.sort((a,b)=>(b[0]*.3+b[1]*.59+b[2]*.11)-(a[0]*.3+a[1]*.59+a[2]*.11));
+function renderEbGal(){$('#ebGal').innerHTML=(P.ebauches||[]).length?P.ebauches.map(e=>`<div class="ph"><img src="${e.data}" alt=""><div>${e.ia?'<span class="badge">Rendu IA</span><br>':''}${esc(e.label)}<br><button class="btn sm danger" data-ebdel="${e.id}" style="margin-top:6px">Retirer</button></div></div>`).join(''):'<p class="empty">Aucune image capturée.</p>'}
+R.ebauche=()=>{const prop=P.art.proposal,pal=(prop?prop.palette:(P.art.palette||(TONES[P.art.tone]||TONES.contemplatif).palette)).map(x=>hex2rgb(x[1]));EB.pal=pal.sort((a,b)=>(b[0]*.3+b[1]*.59+b[2]*.11)-(a[0]*.3+a[1]*.59+a[2]*.11));
  EB.refl=Math.min(1.25,Math.max(.3,((MAT[P.calc.materiau]||MAT.calcaire)[1])*1.6));
  const sel=$('#ebSeq'),prev=sel.value;let o='';if(prop){o+='<option value="chain">Déroulé complet enchaîné (5 s par séquence)</option><optgroup label="Séquences de la piste">'+prop.seq.map((sq,i)=>`<option value="seq:${i}">${mmss(sq.t0)} · ${esc(sq.name)}${sq.fx?' · '+esc(sq.fx.n):''}</option>`).join('')+'</optgroup>'}
  o+='<optgroup label="Effets libres">'+Object.keys(FX_KEY).map(n=>`<option value="fx:${esc(n)}">${esc(n)}</option>`).join('')+'</optgroup>';sel.innerHTML=o;if(prev&&[...sel.options].some(x=>x.value===prev))sel.value=prev;
@@ -981,6 +1026,16 @@ $('#ebGal').addEventListener('click',e=>{const b=e.target.closest('[data-ebdel]'
  cv.addEventListener('pointermove',e=>{if(EB.drag<0)return;const[x,y]=pt(e),{s}=ebScale();EB.ph.quad[EB.drag]=[Math.max(0,Math.min(EB.ph.w,x/s)),Math.max(0,Math.min(EB.ph.h,y/s))];ebDrawCadre()});
  const end=()=>{if(EB.drag<0)return;EB.drag=-1;EB.prep=null;scheduleSave()};cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end)})();
 
+
+/* ---- rendus IA ---- */
+const FX_EN={trait:'glowing white light lines tracing every architectural edge',joints:'light flowing through the stone joints like luminous veins',pierres:'stones lighting up one by one as if the façade were rebuilding itself',deconstruction:'the façade fragmenting into floating luminous blocks',matieres:'the façade turned into a flowing luminous material',particules:'thousands of glowing particles drifting over the façade',kaleido:'a rotating kaleidoscopic mandala centred on the main opening',fenetres:'warm golden light and silhouettes glowing inside the windows',soleil:'a raking virtual sunlight sweeping across the relief',profondeur:'an optical illusion of depth, the wall opening into a luminous tunnel',elevation:'vertical beams of light rising along the façade',calligraphie:'luminous handwritten calligraphy across the wall',temps:'a giant animated clock face',feu:'fire and torchlight flickering along the base of the walls',horizon:'a starry sky projected above the cornice line',salut:'elegant warm white architectural lighting',wash:'soft flowing gradients of colour'};
+const TONE_EN={contemplatif:'contemplative and calm',epique:'epic and dramatic',poetique:'poetic and dreamy',festif:'festive and joyful',sacre:'sacred and solemn'};
+const toHex=c=>'#'+c.map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+function iaPromptText(){const key=EB.cur?EB.cur.key:'wash',pal=(EB.pal||[]).map(toHex).join(', ');return`Photorealistic night photograph of exactly the same building, from the same viewpoint and framing. Keep the architecture strictly identical: same windows, openings, proportions, ornaments and materials. A large-scale video projection mapping covers the façade: ${FX_EN[key]||FX_EN.wash}. Colour palette: ${pal}. Mood: ${TONE_EN[P.art.tone]||'contemplative'}. Deep blue night sky, dark surroundings, light haze, a few audience silhouettes in the foreground, realistic light falloff on the stone texture. No text, no logos, no added structures.`}
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(_){const ta=$('#iaPrompt');ta.removeAttribute('readonly');ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.setAttribute('readonly','');return ok}}
+$('#iaPrep').onclick=async()=>{if(EB.mode!=='sim'||!EB.prep){toast('Passez en mode Simuler, puis choisissez la séquence à rendre.');return}if(!EB.playing)ebFrame();const url=$('#ebCv').toDataURL('image/jpeg',.9),blob=await (await fetch(url)).blob(),lab=(EB.cur?EB.cur.label:'ebauche').replace(/[^\wÀ-ÿ -]+/g,' ').trim().replace(/\s+/g,'-').slice(0,50);download(fileBase()+'_ebauche_'+lab+'.jpg',blob);const t=iaPromptText();$('#iaPrompt').value=t;$('#iaBox').open=true;toast((await copyText(t))?'Image téléchargée et consigne copiée':'Image téléchargée : copiez la consigne ci-dessous')};
+$('#iaCopy').onclick=async()=>{toast((await copyText($('#iaPrompt').value))?'Consigne copiée':'Copie impossible : sélectionnez le texte à la main')};
+$('#iaIn').onchange=async e=>{const files=[...e.target.files];e.target.value='';let n=0;for(const f of files){try{const r=await compress(f,2000,.85);P.ebauches.push({id:uid(),photo:EB.ph?EB.ph.id:'',label:'Rendu IA · '+f.name.replace(/\.[^.]+$/,''),data:r.data,ia:true,date:Date.now()});n++}catch(_){toast('Image illisible : '+f.name)}}scheduleSave();renderEbGal();if(n)toast(n+' rendu(s) IA ajouté(s) au rapport')};
 
 /* ---- images de référence ---- */
 function kmeansPalette(dataUrl,k=5){return new Promise(res=>{const img=new Image();img.onload=()=>{const N=72,c=document.createElement('canvas');c.width=N;c.height=Math.max(1,Math.round(N*img.height/img.width));const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height).data,px=[];for(let i=0;i<d.length;i+=4)if(d[i+3]>200)px.push([d[i],d[i+1],d[i+2]]);
@@ -1018,7 +1073,13 @@ async function buildReport(withPhotos){const st=P.site,V=verdict(),A=alertsList(
  return h}
 R.rapport=async()=>{$('#repPreview').innerHTML=await buildReport(false)};
 $('#printBtn').onclick=async()=>{toast('Préparation du rapport…');$('#printArea').innerHTML=await buildReport(true);setTimeout(()=>window.print(),300)};
-$('#exportBtn').onclick=async()=>{await saveNow();const name=(P.name||'repérage').replace(/[^\wÀ-ÿ -]+/g,'').trim().replace(/\s+/g,'-')||'reperage';download(name+'.json',new Blob([JSON.stringify(P)],{type:'application/json'}));if(P.scans.length)toast('Les scans 3D ne sont pas inclus dans l’export : conservez-les à part.')};
+function fileBase(){return(P.name||'repérage').replace(/[^\wÀ-ÿ -]+/g,'').trim().replace(/\s+/g,'-')||'reperage'}
+const isTouchDevice=/iPad|iPhone|Android/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.platform));
+async function shareProject(){if(!P){toast('Ouvrez d’abord un repérage.');return}await saveNow();const d=new Date(),stamp=d.toISOString().slice(0,10)+'_'+String(d.getHours()).padStart(2,'0')+'h'+String(d.getMinutes()).padStart(2,'0'),name=fileBase()+'_'+stamp+'.json',file=new File([JSON.stringify(P)],name,{type:'application/json'});
+ if(isTouchDevice&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:P.name});toast('Envoyé. Vérifiez qu’il est bien dans le dossier Repérages mapping.');return}catch(e){if(e&&e.name==='AbortError')return}}
+ download(name,file);toast('Fichier téléchargé : déposez-le dans le dossier Drive Repérages mapping.')}
+$('#driveSend').onclick=shareProject;$('#driveSend2').onclick=shareProject;
+$('#exportBtn').onclick=async()=>{await saveNow();const name=fileBase();download(name+'.json',new Blob([JSON.stringify(P)],{type:'application/json'}));if(P.scans.length)toast('Les scans 3D ne sont pas inclus dans l’export : conservez-les à part.')};
 
 /* ================= démarrage ================= */
 function fillSelects(){$$('select[data-opts]').forEach(s=>{const d=OPTS[s.dataset.opts];s.innerHTML=Object.entries(d).map(([k,v])=>`<option value="${k}">${esc(Array.isArray(v)?v[0]:v)}</option>`).join('')})}
