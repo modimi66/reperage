@@ -148,6 +148,10 @@ td select{padding:6px 8px;font-size:14px}
 .alerts{list-style:none;padding:0;margin:0}
 .alerts li{padding:8px 0 8px 14px;border-left:3px solid var(--muted);margin-bottom:6px;font-size:.92rem}
 .alerts li.bad{border-color:var(--bad)}.alerts li.warn{border-color:var(--warn)}.alerts li.info{border-color:var(--cyan)}
+/* bibliothèque */
+.librow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.minisw i{display:inline-block;width:18px;height:18px;border-radius:4px;margin-right:3px;vertical-align:middle;border:1px solid var(--line)}
+.prop table{margin:6px 0}
 /* édition piste */
 .seqed{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--surface2)}
 .seqed .tc{font-family:var(--fc);font-weight:600;color:var(--accent);font-size:1.1rem}
@@ -194,6 +198,21 @@ ul.plain li{margin:4px 0;font-size:.93rem}
   #printArea figcaption{font-size:9pt;color:#444}
   #printArea .sw i{height:30px;border:1px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #printArea section{break-inside:auto}
+  #printArea .pl-cover{display:grid;grid-template-columns:1fr 1.2fr;gap:14mm;align-items:center;min-height:165mm;break-after:page}
+  #printArea .pl-cover h1{font-size:30pt;margin:4pt 0 8pt}
+  #printArea .pl-cover img{width:100%;border-radius:4pt}
+  #printArea .pl-pitch{font-size:12pt;line-height:1.45}
+  #printArea .pl-k{font-size:8.5pt;color:#666;text-transform:uppercase;letter-spacing:.06em;margin:2pt 0}
+  #printArea .pl-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8mm}
+  #printArea .pl-grid article{break-inside:avoid}
+  #printArea .pl-grid img,#printArea .pl-ph{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:3pt;background:#eee;display:block}
+  #printArea .pl-ph{display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt}
+  #printArea .pl-grid h3{font-size:11pt;margin:3pt 0}
+  #printArea .pl-grid p{font-size:9pt;margin:2pt 0}
+  #printArea .pl-refs{break-before:page}
+  #printArea .pl-refs h2{grid-column:1/-1}
+  #printArea .pl-foot{font-size:8pt;color:#888;margin-top:8mm}
+  #printArea .sw span{color:#444}
 }
 </style>
 </head>
@@ -438,6 +457,28 @@ ul.plain li{margin:4px 0;font-size:.93rem}
       <div class="row" style="margin-top:10px"><span class="note" id="refPalNote"></span><button class="btn sm ghost" id="refPalReset" hidden>Revenir à la palette de la tonalité</button></div>
       <div class="pgrid" id="refGrid" style="margin-top:12px"></div>
     </div>
+    <div class="panel">
+      <h3>Travailler la piste avec Claude</h3>
+      <p class="hint">1. Copiez le brief. 2. Collez-le dans une conversation avec Claude, avec vos images de référence en pièces jointes. 3. Collez ici sa réponse complète, puis importez : la piste, la palette et le déroulé sont remplacés, prêts pour l’ébauche.</p>
+      <div class="row"><button class="btn primary" id="briefBtn">Copier le brief pour Claude</button></div>
+      <details id="briefBox" style="margin-top:10px"><summary>Voir le brief</summary><textarea id="briefTxt" readonly style="min-height:200px"></textarea></details>
+      <label class="full" style="margin-top:12px">Réponse de Claude<textarea id="claudeIn" placeholder="Collez ici toute la réponse, avec le bloc JSON"></textarea></label>
+      <div class="row" style="margin-top:8px"><button class="btn" id="claudeImport">Importer la piste</button></div>
+    </div>
+    <div class="panel">
+      <details id="libBox"><summary>Ma bibliothèque : thèmes, palettes, effets, tarifs</summary>
+        <p class="hint">Conservée sur cet appareil et commune à tous les projets. Exportez-la pour la retrouver sur l’autre appareil (iPad ou PC).</p>
+        <div class="row"><button class="btn sm" id="libSaveTheme">Enregistrer la piste comme thème</button><button class="btn sm" id="libSavePal">Enregistrer la palette</button><button class="btn sm" id="libExport">Exporter</button><span class="btn sm filebtn">Importer<input type="file" id="libImport" accept=".json,application/json"></span></div>
+        <h4>Mes thèmes</h4><div id="libThemes"></div>
+        <h4>Mes palettes</h4><div id="libPals"></div>
+        <h4>Mes effets</h4>
+        <div class="grid"><label>Nom de l’effet<input id="fxName"></label><label>Rendu dans l’ébauche<select id="fxBase"></select></label><label class="full">Description<input id="fxDesc" placeholder="ce que voit le public"></label></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm" id="fxAdd">Ajouter l’effet</button></div>
+        <div id="libFx"></div>
+        <h4>Ratios de production (jours de création par minute de contenu)</h4>
+        <div class="grid"><label>Graphisme 2D<input data-rate="2d" inputmode="decimal"></label><label>Mapping d’architecture<input data-rate="archi" inputmode="decimal"></label><label>3D / illusion de volume<input data-rate="3d" inputmode="decimal"></label><label>Lumière seule<input data-rate="lum" inputmode="decimal"></label><label>Taux journalier (€ HT, facultatif)<input data-rate="tjm" inputmode="decimal"></label></div>
+      </details>
+    </div>
     <div id="propOut"></div>
   </section>
 
@@ -603,6 +644,12 @@ const TONES={
  festif:{label:'Festif',palette:[['Fuchsia','#E2378B'],['Jaune soleil','#F7C531'],['Turquoise','#21B5B0'],['Orange','#F27A2A'],['Violet','#6B3FA0']],rythme:'Coupes sur le temps, boucles courtes, énergie constante.'},
  sacre:{label:'Sacré / solennel',palette:[['Or ancien','#B8893A'],['Pourpre','#5E1F4A'],['Blanc cierge','#F6EEDC'],['Bleu vitrail','#1F4E8C'],['Ombre','#191521']],rythme:'Lent, symétrique, centré sur l’axe de l’édifice.'}
 };
+function defaultLib(){return{id:'main',themes:[],palettes:[],effects:[],rates:{'2d':3,archi:5,'3d':8,lum:.5,tjm:''}}}
+let LIB=defaultLib();
+async function saveLib(){try{await DB.put('lib',LIB)}catch(_){toast('Bibliothèque non enregistrée')}}
+function themeOf(k){if(k&&String(k).startsWith('my:')){const t=LIB.themes.find(x=>'my:'+x.id===k);if(t)return{label:t.label,titles:t.titles&&t.titles.length?t.titles:[t.label],beats:t.beats&&t.beats.length?t.beats:THEMES.histoire.beats,music:t.music||''}}return THEMES[k]||THEMES.histoire}
+const TEMPO={contemplatif:70,epique:120,poetique:84,festif:124,sacre:66};
+const CX={'2d':'Graphisme 2D','archi':'Mapping d’architecture','3d':'3D / illusion de volume','lum':'Lumière seule'};
 const DRIVE_URL='https://drive.google.com/drive/folders/19etYn3-S7Q3esStC_Ne6h2pRd82U7wXi';
 const REFCATS={ambiance:'Ambiance',palette:'Couleurs / palette',effet:'Effet / technique',oeuvre:'Œuvre ou spectacle',typo:'Typographie / graphisme',archi:'Architecture / détail',autre:'Autre'};
 const OPTS={REFCATS,TYPES,STATUT,MAT,AMB,RES,ZONES,TARGETS,PUBLICS,
@@ -610,8 +657,8 @@ const OPTS={REFCATS,TYPES,STATUT,MAT,AMB,RES,ZONES,TARGETS,PUBLICS,
   TONES:Object.fromEntries(Object.entries(TONES).map(([k,v])=>[k,v.label]))};
 
 /* ================= stockage ================= */
-const DB={db:null,mem:{projects:{},files:{}},
- async open(){try{this.db=await new Promise((res,rej)=>{const r=indexedDB.open('reperage-mapping',1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('projects',{keyPath:'id'});d.createObjectStore('files',{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const DB={db:null,mem:{projects:{},files:{},lib:{}},
+ async open(){try{this.db=await new Promise((res,rej)=>{const r=indexedDB.open('reperage-mapping',2);r.onupgradeneeded=()=>{const d=r.result;for(const n of['projects','files','lib'])if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
    if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
  }catch(e){this.db=null;toast('Stockage local indisponible : exportez vos projets avant de fermer.')}},
  tx(store,mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction(store,mode);const r=fn(t.objectStore(store));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})},
@@ -654,7 +701,10 @@ $('#plist').addEventListener('click',async e=>{const b=e.target.closest('button'
  if(b.dataset.dup){const p=await DB.get('projects',b.dataset.dup);const c=JSON.parse(JSON.stringify(p));c.id=uid();c.name=p.name+' (copie)';c.scans=[];c.updated=Date.now();await DB.put('projects',c);R.projets()}
  if(b.dataset.del){const p=await DB.get('projects',b.dataset.del);if(!confirm('Supprimer définitivement « '+p.name+' » ?'))return;for(const s of p.scans||[])await DB.del('files',s.id);await DB.del('projects',p.id);if(P&&P.id===p.id){P=null;updHeader()}R.projets()}});
 $('#newBtn').onclick=async()=>{P=newProject();await saveNow();updHeader();show('site');setTimeout(()=>{const n=$('[data-bind="name"]');n.focus();n.select()},50)};
-$('#importJson').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;let p;try{p=JSON.parse(await f.text());if(!p.site||!p.calc)throw 0}catch(_){toast('Fichier non reconnu : exportez-le depuis cet outil.');return}
+$('#importJson').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;let p;try{p=JSON.parse(await f.text());if(p.type!=='reperage-piste'&&(!p.site||!p.calc))throw 0}catch(_){toast('Fichier non reconnu : exportez-le depuis cet outil.');return}
+ if(p.type==='reperage-piste'){const proj=await DB.get('projects',p.projectId);if(!proj&&!P){toast('Ouvrez d’abord le projet concerné, puis importez la piste.');return}
+  if(!proj&&!confirm(`Le projet « ${p.projectName} » n’est pas sur cet appareil.\nAppliquer la piste au projet ouvert « ${P.name} » ?`))return;
+  if(proj&&(!P||P.id!==proj.id)){P=migrate(proj);updHeader()}show('artistique');if(applyPiste(p.piste,'Atelier artistique')){await saveNow();renderProposal()}return}
  const dt=ts=>ts?new Date(ts).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'?';const ex=await DB.get('projects',p.id);let replaced=false;
  if(ex){if(confirm(`« ${ex.name} » existe déjà sur cet appareil.\nSur cet appareil : modifié le ${dt(ex.updated)}\nDans le fichier : modifié le ${dt(p.updated)}${(p.updated||0)<(ex.updated||0)?'\n\nAttention : le fichier est plus ancien que la version de cet appareil.':''}\n\nOK : remplacer par le fichier.\nAnnuler : importer comme copie.`)){p.scans=ex.scans||[];replaced=true}else{p.id=uid();p.name=(p.name||'Repérage')+' (copie)';p.scans=[]}}else p.scans=[];
  migrate(p);await DB.put('projects',p);if(replaced&&P&&P.id===p.id){P=p;updHeader()}toast(replaced?'Projet remplacé par la version du fichier':'Projet importé');R.projets()};
@@ -863,14 +913,14 @@ function renderChips(){const defs={styles:Object.fromEntries(Object.entries(STYL
  $$('[data-chips]').forEach(box=>{const key=box.dataset.chips,sel=P.art[key]||[];box.innerHTML=Object.entries(defs[key]).map(([k,l])=>`<button class="chip ${sel.includes(k)?'on':''}" data-k="${k}" aria-pressed="${sel.includes(k)}">${l}</button>`).join('')})}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-chips] .chip');if(!b||!P)return;const key=b.parentElement.dataset.chips;const arr=P.art[key]=P.art[key]||[];const i=arr.indexOf(b.dataset.k);if(i>=0)arr.splice(i,1);else arr.push(b.dataset.k);b.classList.toggle('on',i<0);b.setAttribute('aria-pressed',i<0);scheduleSave()});
 function mmss(s){s=Math.round(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
-function generate(){propEdit=false;const A=P.art,r=rng(A.seed*9973+7),th=THEMES[A.theme]||THEMES.histoire,tn=TONES[A.tone]||TONES.contemplatif,st=P.site,dur=Math.max(3,num(st.duree,12))*60;
+function generate(){propEdit=false;const A=P.art,r=rng(A.seed*9973+7),th=themeOf(A.theme),tn=TONES[A.tone]||TONES.contemplatif,st=P.site,dur=Math.max(3,num(st.duree,12))*60;
  const elFx=[];(A.elements||[]).forEach(k=>{const e=ELEMENTS[k];if(e)e[1].forEach(f=>elFx.push([f[0],f[1],e[0]]))});
- const pool=shuffle(elFx,r).concat(shuffle(GENERIC_FX.map(f=>[f[0],f[1],'']),r));
+ const pool=shuffle(elFx,r).concat(shuffle(GENERIC_FX.map(f=>[f[0],f[1],'']).concat(LIB.effects.map(e=>[e.name,e.desc||'',''])),r));
  const parts=[['Ouverture','Noir complet, puis révélation au trait : les arêtes de l’architecture se dessinent avant toute image.',.08,['Révélation au trait','la façade se dessine en lignes de lumière','']]];
- th.beats.forEach((b,i)=>parts.push([b,'',.15,pool[i%pool.length]]));
+ const bf=.75/th.beats.length;th.beats.forEach((b,i)=>parts.push([b,'',bf,pool[i%pool.length]]));
  parts.push(['Final','Synthèse visuelle et musicale, toutes les techniques convergent, ' +(A.publicType==='institutionnel'?'puis message ou identité du commanditaire, sobrement intégrés.':'la façade revient à son état réel dans un dernier fondu.'),.12,pool[(th.beats.length)%pool.length]]);
  parts.push(['Salut','Éclairage de mise en valeur de l’édifice, sortie du public en musique.',.05,null]);
- let t=0;const seq=parts.map(([name,txt,f,fx])=>{const s={t0:t,t1:t+f*dur,name,txt,fx:fx?{n:fx[0],d:fx[1],el:fx[2]}:null};t+=f*dur;return s});
+ let t=0;const seq=parts.map(([name,txt,f,fx])=>{const s={t0:t,t1:t+f*dur,name,txt,fx:fx?{n:fx[0],d:fx[1],el:fx[2]}:null,cue:name==='Ouverture'?'silence, puis une nappe qui s’installe':name==='Final'?'climax, toute l’orchestration':name==='Salut'?'fin du morceau, fondu':''};s.dur=Math.round(f*dur);s.cx=cxDefault(s);t+=f*dur;return s});
  const title=th.titles[Math.floor(r()*th.titles.length)];
  const ratio=num(P.calc.L,0)/Math.max(.1,num(P.calc.H,0));
  const styleNotes=(A.styles||[]).map(k=>STYLES[k]&&STYLES[k][0]+' : '+STYLES[k][1]).filter(Boolean);
@@ -892,13 +942,14 @@ function generate(){propEdit=false;const A=P.art,r=rng(A.seed*9973+7),th=THEMES[
  if(st.type==='interieur')lum.push('Intérieur : maîtriser les retours de lumière sur vitraux, dorures et peintures murales.');
  lum.push('Brumisateur léger pour matérialiser les faisceaux, à écarter si détection incendie ou intérieur protégé sans accord.');
  const pitch=`${TYPES[st.type]||'Spectacle'} de ${fmt(dur/60,0)} minutes, tonalité ${tn.label.toLowerCase()}, autour du thème « ${th.label.toLowerCase()} »${st.lieu?', conçu pour '+st.lieu:''}. ${elFx.length?'L’écriture s’appuie sur '+[...new Set(elFx.map(f=>f[2].toLowerCase()))].slice(0,3).join(', ')+' pour que l’architecture reste le premier personnage.':'L’architecture reste le premier personnage : chaque tableau part de ses lignes réelles.'}`;
- A.proposal={title,pitch,theme:th.label,tone:tn.label,palette:A.palette||tn.palette,paletteSrc:A.palette?'image de référence':tn.label,rythme:tn.rythme,music:th.music,seq,styleNotes,vig,lum,idees:A.idees||'',fxAll:elFx.map(f=>({n:f[0],d:f[1],el:f[2]})),date:Date.now()};scheduleSave();renderProposal()}
+ A.proposal={title,pitch,theme:th.label,tone:tn.label,palette:A.palette||tn.palette,paletteSrc:A.palette?(A.paletteName||'image de référence'):tn.label,rythme:tn.rythme,music:th.music,tempo:String(TEMPO[A.tone]||90),seq,styleNotes,vig,lum,idees:A.idees||'',fxAll:elFx.map(f=>({n:f[0],d:f[1],el:f[2]})),date:Date.now()};scheduleSave();renderProposal()}
 function propHTML(p){return`<p class="note">${p.edited?'Piste retravaillée le '+new Date(p.editedAt||p.date).toLocaleDateString('fr-FR')+' à '+hm(new Date(p.editedAt||p.date)):'Variante générée le '+new Date(p.date).toLocaleDateString('fr-FR')+' à '+hm(new Date(p.date))}</p><h3 class="title">${esc(p.title)}</h3><p class="pitch">${esc(p.pitch)}</p>${p.idees?`<p class="note">À intégrer : ${esc(p.idees)}</p>`:''}
  <h4>Palette (${esc(p.paletteSrc||p.tone)})</h4><div class="sw">${p.palette.map(([n,c])=>`<div><i style="background:${c}"></i><span>${n}<br>${c}</span></div>`).join('')}</div>
- <p class="note">Rythme : ${esc(p.rythme)}<br>Musique : ${esc(p.music)}</p>
- <h4>Déroulé</h4>${p.seq.map(s=>`<div class="seq"><div class="tc">${mmss(s.t0)}</div><div><b>${esc(s.name)}</b>${s.txt?`<p>${esc(s.txt)}</p>`:''}${s.fx?`<p class="fx">Effet : ${esc(s.fx.n)}, ${esc(s.fx.d)}${s.fx.el?' ('+esc(s.fx.el.toLowerCase())+')':''}.</p>`:''}</div></div>`).join('')}
+ <p class="note">Rythme : ${esc(p.rythme)}${p.tempo?' · Tempo '+esc(p.tempo)+' BPM':''}<br>Musique : ${esc(p.music)}</p>
+ <h4>Déroulé</h4>${p.seq.map(s=>`<div class="seq"><div class="tc">${mmss(s.t0)}</div><div><b>${esc(s.name)}</b>${s.txt?`<p>${esc(s.txt)}</p>`:''}${s.fx?`<p class="fx">Effet : ${esc(s.fx.n)}${s.fx.d?', '+esc(s.fx.d):''}${s.fx.el?' ('+esc(s.fx.el.toLowerCase())+')':''}.</p>`:''}${s.cue?`<p class="fx">Musique : ${esc(s.cue)}</p>`:''}</div></div>`).join('')}
  ${p.fxAll.length?`<h4>Effets possibles sur l’architecture relevée</h4><ul class="plain">${p.fxAll.map(f=>`<li><b>${esc(f.n)}</b> (${esc(f.el.toLowerCase())}) : ${esc(f.d)}.</li>`).join('')}</ul>`:''}
  ${p.styleNotes.length?`<h4>Lecture du style</h4><ul class="plain">${p.styleNotes.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:''}
+ ${estimateHTML(p)}
  <h4>Lumière complémentaire</h4><ul class="plain">${p.lum.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
  <h4>Points de vigilance</h4><ul class="plain">${p.vig.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`}
 let propEdit=false;
@@ -906,30 +957,32 @@ const FXDESC=(()=>{const m={'Révélation au trait':{d:'la façade se dessine en
 function confirmReplaceProp(){const p=P.art.proposal;return!(p&&p.edited)||confirm('La piste actuelle a été retravaillée. La remplacer par une nouvelle proposition ?')}
 function recalcSeq(p){let t=0;p.seq.forEach(s=>{if(s.dur==null)s.dur=Math.round(s.t1-s.t0);s.dur=Math.max(1,Math.round(num(s.dur,30)));s.t0=t;s.t1=t+s.dur;t+=s.dur});return t}
 function markEdited(){const p=P.art.proposal;p.edited=true;p.editedAt=Date.now();scheduleSave()}
-function propEditHTML(p){const tot=recalcSeq(p),prev=num(P.site.duree,0)*60,fxOpts=sel=>'<option value="">Aucun effet</option>'+Object.keys(FXDESC).map(n=>`<option ${sel===n?'selected':''}>${esc(n)}</option>`).join('');
+function propEditHTML(p){const tot=recalcSeq(p),prev=num(P.site.duree,0)*60,fxOpts=sel=>'<option value="">Aucun effet</option>'+fxNames().map(n=>`<option ${sel===n?'selected':''}>${esc(n)}</option>`).join('');
  return`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Modifier la piste</h3><button class="btn primary" id="propDone">Terminer</button></div>
- <div class="grid" style="margin-top:12px"><label class="full">Titre<input data-pe="title" value="${esc(p.title)}"></label><label class="full">Intention<textarea data-pe="pitch">${esc(p.pitch)}</textarea></label><label class="full">Musique et son<textarea data-pe="music" style="min-height:60px">${esc(p.music)}</textarea></label><label class="full">Rythme du montage<input data-pe="rythme" value="${esc(p.rythme)}"></label></div>
+ <div class="grid" style="margin-top:12px"><label class="full">Titre<input data-pe="title" value="${esc(p.title)}"></label><label class="full">Intention<textarea data-pe="pitch">${esc(p.pitch)}</textarea></label><label class="full">Musique et son<textarea data-pe="music" style="min-height:60px">${esc(p.music)}</textarea></label><label class="full">Rythme du montage<input data-pe="rythme" value="${esc(p.rythme)}"></label><label>Tempo (BPM)<input data-pe="tempo" inputmode="numeric" value="${esc(p.tempo||'')}"></label></div>
  <h4>Palette</h4><div class="row">${p.palette.map((c,i)=>`<label style="width:96px">${esc(c[0])}<input type="color" data-pcol="${i}" value="${esc(c[1]).toLowerCase()}"></label>`).join('')}</div>
  <h4>Séquences <span class="note" id="seqTot">· durée totale ${mmss(tot)}${prev?' pour '+mmss(prev)+' prévues':''}</span></h4>
  ${p.seq.map((s,i)=>`<div class="seqed"><div class="row" style="justify-content:space-between"><span class="tc" data-tc="${i}">${mmss(s.t0)}</span><div class="row"><button class="btn sm" data-smove="${i}" data-dir="-1" ${i?'':'disabled'}>Monter</button><button class="btn sm" data-smove="${i}" data-dir="1" ${i<p.seq.length-1?'':'disabled'}>Descendre</button><button class="btn sm danger" data-sdelq="${i}">Supprimer</button></div></div>
-  <div class="grid" style="margin-top:8px"><label class="full">Nom<input data-se="${i}" data-k="name" value="${esc(s.name)}"></label><label>Durée (secondes)<input data-se="${i}" data-k="dur" inputmode="numeric" value="${s.dur}"></label><label>Effet<select data-se="${i}" data-k="fx">${fxOpts(s.fx&&s.fx.n)}</select></label><label class="full">Contenu<textarea data-se="${i}" data-k="txt" style="min-height:60px">${esc(s.txt)}</textarea></label></div></div>`).join('')}
+  <div class="grid" style="margin-top:8px"><label class="full">Nom<input data-se="${i}" data-k="name" value="${esc(s.name)}"></label><label>Durée (secondes)<input data-se="${i}" data-k="dur" inputmode="numeric" value="${s.dur}"></label><label>Effet<select data-se="${i}" data-k="fx">${fxOpts(s.fx&&s.fx.n)}</select></label><label>Nature du contenu<select data-se="${i}" data-k="cx">${Object.entries(CX).map(([k,v])=>`<option value="${k}" ${(s.cx||cxDefault(s))===k?'selected':''}>${v}</option>`).join('')}</select></label><label>Repère musical<input data-se="${i}" data-k="cue" value="${esc(s.cue||'')}"></label><label class="full">Contenu<textarea data-se="${i}" data-k="txt" style="min-height:60px">${esc(s.txt)}</textarea></label></div></div>`).join('')}
  <button class="btn" id="seqAdd">Ajouter une séquence</button>`}
-function renderProposal(){const p=P.art.proposal;if(!p){$('#propOut').innerHTML='';return}$('#propOut').innerHTML=`<div class="panel prop">${propEdit?propEditHTML(p):propHTML(p)+'<div class="row" style="margin-top:16px"><button class="btn primary" id="propEditBtn">Modifier la piste</button></div>'}</div>`}
+function renderProposal(){const p=P.art.proposal;if(!p){$('#propOut').innerHTML='';return}$('#propOut').innerHTML=`<div class="panel prop">${propEdit?propEditHTML(p):propHTML(p)+'<div class="row" style="margin-top:16px"><button class="btn primary" id="propEditBtn">Modifier la piste</button><button class="btn" id="plancheBtn">Planche client (PDF)</button><button class="btn" id="musicBtn">Consigne musique</button></div><details id="musBox" style="margin-top:10px"><summary>Consigne pour une maquette musicale (Runway)</summary><p class="hint">Collez-la à Claude en demandant une maquette musicale avec Runway. Le morceau généré a une longueur fixe : c’est une maquette d’intention, pas la bande-son finale.</p><textarea id="musPrompt" readonly style="min-height:140px"></textarea></details>'}</div>`}
 $('#propOut').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!P.art.proposal)return;const p=P.art.proposal;
  if(b.id==='propEditBtn'){propEdit=true;recalcSeq(p);renderProposal();return}
  if(b.id==='propDone'){propEdit=false;renderProposal();return}
- if(b.id==='seqAdd'){p.seq.push({name:'Nouvelle séquence',txt:'',dur:60,fx:null});recalcSeq(p);markEdited();renderProposal();return}
+ if(b.id==='musicBtn'){const t=musicPrompt(p);$('#musPrompt').value=t;$('#musBox').open=true;copyText(t,$('#musPrompt')).then(ok=>toast(ok?'Consigne musique copiée':'Copiez la consigne ci-dessous'));return}
+ if(b.id==='plancheBtn'){$('#printArea').innerHTML=plancheHTML();toast('Planche prête : choisissez « Enregistrer en PDF »');setTimeout(()=>window.print(),400);return}
+ if(b.id==='seqAdd'){p.seq.push({name:'Nouvelle séquence',txt:'',dur:60,fx:null,cx:'2d',cue:''});recalcSeq(p);markEdited();renderProposal();return}
  if(b.dataset.smove){const i=+b.dataset.smove,j=i+ +b.dataset.dir;if(j<0||j>=p.seq.length)return;[p.seq[i],p.seq[j]]=[p.seq[j],p.seq[i]];recalcSeq(p);markEdited();renderProposal();return}
  if(b.dataset.sdelq){if(!confirm('Supprimer cette séquence ?'))return;p.seq.splice(+b.dataset.sdelq,1);recalcSeq(p);markEdited();renderProposal()}});
 function onPropField(e){const el=e.target,p=P&&P.art.proposal;if(!p||!propEdit)return;
  if(el.dataset.pe){e.stopPropagation();p[el.dataset.pe]=el.value;markEdited();return}
  if(el.dataset.pcol){e.stopPropagation();p.palette[+el.dataset.pcol][1]=el.value.toUpperCase();p.paletteSrc='personnalisée';markEdited();return}
  if(el.dataset.se){e.stopPropagation();const s=p.seq[+el.dataset.se],k=el.dataset.k;
-  if(k==='fx'){const n=el.value;s.fx=n?{n,d:(FXDESC[n]||{}).d||'',el:(FXDESC[n]||{}).el||''}:null}
+  if(k==='fx'){const n=el.value;s.fx=n?{n,...fxInfo(n)}:null}
   else if(k==='dur'){s.dur=el.value;const tot=recalcSeq(p),prev=num(P.site.duree,0)*60;p.seq.forEach((x,i)=>{const t=$(`[data-tc="${i}"]`);if(t)t.textContent=mmss(x.t0)});$('#seqTot').textContent=`· durée totale ${mmss(tot)}${prev?' pour '+mmss(prev)+' prévues':''}`}
   else s[k]=el.value;markEdited()}}
 $('#propOut').addEventListener('input',onPropField);$('#propOut').addEventListener('change',onPropField);
-R.artistique=()=>{bindAll($('#t-artistique'));renderChips();renderRefs();renderProposal()};
+R.artistique=()=>{fillThemeSelect();bindAll($('#t-artistique'));renderChips();renderRefs();renderLib();renderProposal()};
 $('#genBtn').onclick=()=>{if(!confirmReplaceProp())return;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
 $('#varBtn').onclick=()=>{if(!confirmReplaceProp())return;P.art.seed=(P.art.seed||1)+1;generate();$('#propOut').scrollIntoView({behavior:'smooth'})};
 
@@ -940,7 +993,7 @@ const clamp01=x=>x<0?0:x>1?1:x;
 const hsh=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
 const rgba=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
 const FX_KEY={'Révélation au trait':'trait','Tracé d’ingénieur':'trait','Joints de lumière':'joints','Arcs en tension':'joints','Ornements animés':'joints','Ferronneries végétales':'joints','Pierre à pierre':'pierres','Déconstruction':'deconstruction','Matières':'matieres','Particules':'particules','Kaléidoscope':'kaleido','L’œil':'kaleido','Fenêtres habitées':'fenetres','Volets battants':'fenetres','Soleil rasant':'soleil','Ombres virtuelles':'soleil','Fausse profondeur':'profondeur','Portails':'profondeur','Le seuil':'profondeur','Élévation':'elevation','Phare':'elevation','Colonnes vivantes':'elevation','Orgue de lumière':'elevation','Calligraphie':'calligraphie','Le temps s’emballe':'temps','Veille et assaut':'feu','Ligne d’horizon':'horizon','Salut / mise en valeur':'salut'};
-const fxKey=n=>FX_KEY[n]||'wash';
+const fxKey=n=>FX_KEY[n]||((LIB.effects.find(e=>e.name===n)||{}).base)||'wash';
 const FXR={
  trait(c,W,H,t,p){c.fillStyle='#000';c.fillRect(0,0,W,H);const pr=Math.min(1.3,t/3.2);return{edgeAmt:2.6,edgeCol:p[0],gate:(u,v)=>clamp01((pr-(1-v))*5)}},
  joints(c,W,H,t,p){c.fillStyle=rgba(p[2],.10);c.fillRect(0,0,W,H);return{edgeAmt:2.2,edgeCol:p[1],gate:(u,v)=>.2+.8*Math.max(0,Math.sin(u*9+v*5-t*3))}},
@@ -1004,7 +1057,7 @@ function renderEbGal(){$('#ebGal').innerHTML=(P.ebauches||[]).length?P.ebauches.
 R.ebauche=()=>{const prop=P.art.proposal,pal=(prop?prop.palette:(P.art.palette||(TONES[P.art.tone]||TONES.contemplatif).palette)).map(x=>hex2rgb(x[1]));EB.pal=pal.sort((a,b)=>(b[0]*.3+b[1]*.59+b[2]*.11)-(a[0]*.3+a[1]*.59+a[2]*.11));
  EB.refl=Math.min(1.25,Math.max(.3,((MAT[P.calc.materiau]||MAT.calcaire)[1])*1.6));
  const sel=$('#ebSeq'),prev=sel.value;let o='';if(prop){o+='<option value="chain">Déroulé complet enchaîné (5 s par séquence)</option><optgroup label="Séquences de la piste">'+prop.seq.map((sq,i)=>`<option value="seq:${i}">${mmss(sq.t0)} · ${esc(sq.name)}${sq.fx?' · '+esc(sq.fx.n):''}</option>`).join('')+'</optgroup>'}
- o+='<optgroup label="Effets libres">'+Object.keys(FX_KEY).map(n=>`<option value="fx:${esc(n)}">${esc(n)}</option>`).join('')+'</optgroup>';sel.innerHTML=o;if(prev&&[...sel.options].some(x=>x.value===prev))sel.value=prev;
+ o+='<optgroup label="Effets libres">'+fxNames().map(n=>`<option value="fx:${esc(n)}">${esc(n)}</option>`).join('')+'</optgroup>';sel.innerHTML=o;if(prev&&[...sel.options].some(x=>x.value===prev))sel.value=prev;
  const v=computeVideo();let note=prop?`Palette et déroulé de la piste « ${prop.title} ».`:'Aucune piste artistique : palette de la tonalité choisie. Générez une piste dans Artistique pour simuler le déroulé.';
  if(v&&!v.err&&!EB.powSet){$('#ebPow').value=Math.round(Math.min(160,Math.max(40,v.Lum/v.target*100)));EB.powSet=1;note+=` Puissance réglée d’après le dimensionnement (${fmt(v.Lum,0)} cd/m² pour ${v.target} visés).`}
  $('#ebNote').textContent=note;
@@ -1032,7 +1085,7 @@ const FX_EN={trait:'glowing white light lines tracing every architectural edge',
 const TONE_EN={contemplatif:'contemplative and calm',epique:'epic and dramatic',poetique:'poetic and dreamy',festif:'festive and joyful',sacre:'sacred and solemn'};
 const toHex=c=>'#'+c.map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
 function iaPromptText(){const key=EB.cur?EB.cur.key:'wash',pal=(EB.pal||[]).map(toHex).join(', ');return`Photorealistic night photograph of exactly the same building, from the same viewpoint and framing. Keep the architecture strictly identical: same windows, openings, proportions, ornaments and materials. A large-scale video projection mapping covers the façade: ${FX_EN[key]||FX_EN.wash}. Colour palette: ${pal}. Mood: ${TONE_EN[P.art.tone]||'contemplative'}. Deep blue night sky, dark surroundings, light haze, a few audience silhouettes in the foreground, realistic light falloff on the stone texture. No text, no logos, no added structures.`}
-async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(_){const ta=$('#iaPrompt');ta.removeAttribute('readonly');ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.setAttribute('readonly','');return ok}}
+async function copyText(t,ta){try{await navigator.clipboard.writeText(t);return true}catch(_){ta=ta||$('#iaPrompt');ta.removeAttribute('readonly');ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.setAttribute('readonly','');return ok}}
 $('#iaPrep').onclick=async()=>{if(EB.mode!=='sim'||!EB.prep){toast('Passez en mode Simuler, puis choisissez la séquence à rendre.');return}if(!EB.playing)ebFrame();const url=$('#ebCv').toDataURL('image/jpeg',.9),blob=await (await fetch(url)).blob(),lab=(EB.cur?EB.cur.label:'ebauche').replace(/[^\wÀ-ÿ -]+/g,' ').trim().replace(/\s+/g,'-').slice(0,50);download(fileBase()+'_ebauche_'+lab+'.jpg',blob);const t=iaPromptText();$('#iaPrompt').value=t;$('#iaBox').open=true;toast((await copyText(t))?'Image téléchargée et consigne copiée':'Image téléchargée : copiez la consigne ci-dessous')};
 $('#iaCopy').onclick=async()=>{toast((await copyText($('#iaPrompt').value))?'Consigne copiée':'Copie impossible : sélectionnez le texte à la main')};
 $('#iaIn').onchange=async e=>{const files=[...e.target.files];e.target.value='';let n=0;for(const f of files){try{const r=await compress(f,2000,.85);P.ebauches.push({id:uid(),photo:EB.ph?EB.ph.id:'',label:'Rendu IA · '+f.name.replace(/\.[^.]+$/,''),data:r.data,ia:true,date:Date.now()});n++}catch(_){toast('Image illisible : '+f.name)}}scheduleSave();renderEbGal();if(n)toast(n+' rendu(s) IA ajouté(s) au rapport')};
@@ -1047,10 +1100,61 @@ function renderRefs(){const A=P.art,refs=A.refs||[];$('#refGrid').innerHTML=refs
 $('#refIn').onchange=async e=>{const files=[...e.target.files];e.target.value='';const cat=$('#refCat').value;for(const f of files){try{const r=await compress(f,1400,.8);P.art.refs.push({id:uid(),cat,caption:'',data:r.data,w:r.w,h:r.h,date:Date.now()})}catch(_){toast('Image illisible : '+f.name)}}scheduleSave();renderRefs()};
 $('#refGrid').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.refdel){P.art.refs=P.art.refs.filter(r=>r.id!==b.dataset.refdel);if(P.art.paletteRef===b.dataset.refdel){P.art.palette=null;P.art.paletteRef=null;applyPalette()}scheduleSave();renderRefs()}
- if(b.dataset.refpal){const r=P.art.refs.find(x=>x.id===b.dataset.refpal);const pal=await kmeansPalette(r.data);if(pal.length<3){toast('Palette impossible à extraire');return}P.art.palette=pal;P.art.paletteRef=r.id;applyPalette();scheduleSave();renderRefs();toast('Palette appliquée à la piste et à l’ébauche')}});
+ if(b.dataset.refpal){const r=P.art.refs.find(x=>x.id===b.dataset.refpal);const pal=await kmeansPalette(r.data);if(pal.length<3){toast('Palette impossible à extraire');return}P.art.palette=pal;P.art.paletteRef=r.id;P.art.paletteName='image de référence';applyPalette();scheduleSave();renderRefs();toast('Palette appliquée à la piste et à l’ébauche')}});
 $('#refGrid').addEventListener('input',e=>{const i=e.target.closest('[data-refcap]');if(!i)return;e.stopPropagation();const r=P.art.refs.find(x=>x.id===i.dataset.refcap);if(r){r.caption=i.value;scheduleSave()}});
 $('#refPalReset').onclick=()=>{P.art.palette=null;P.art.paletteRef=null;applyPalette();scheduleSave();renderRefs()};
-function applyPalette(){const pr=P.art.proposal;if(pr){const tn=TONES[P.art.tone]||TONES.contemplatif;pr.palette=P.art.palette||tn.palette;pr.paletteSrc=P.art.palette?'image de référence':tn.label;renderProposal()}}
+function applyPalette(){const pr=P.art.proposal;if(pr){const tn=TONES[P.art.tone]||TONES.contemplatif;pr.palette=P.art.palette||tn.palette;pr.paletteSrc=P.art.palette?(P.art.paletteName||'image de référence'):tn.label;renderProposal()}}
+
+
+/* ---- piste : effets, estimation, musique, brief, planche, bibliothèque ---- */
+function fxNames(){return[...new Set(Object.keys(FXDESC).concat(LIB.effects.map(e=>e.name)))]}
+function fxInfo(n){if(FXDESC[n])return{d:FXDESC[n].d,el:FXDESC[n].el};const e=LIB.effects.find(x=>x.name===n);return{d:e?e.desc||'':'',el:''}}
+function cxDefault(s){if(!s.fx)return'lum';const k=fxKey(s.fx.n);return['trait','joints','pierres','fenetres','soleil','horizon'].includes(k)?'archi':['profondeur','deconstruction'].includes(k)?'3d':k==='salut'?'lum':'2d'}
+function estimate(p){const R=LIB.rates;let tot=0;const rows=p.seq.map(s=>{const cx=CX[s.cx]?s.cx:cxDefault(s),sec=s.dur!=null?num(s.dur,0):(s.t1-s.t0),d=sec/60*num(R[cx],0);tot+=d;return{s,cx,sec,d}});const tjm=pnum(R.tjm);return{rows,tot,cost:tjm>0?tot*tjm:NaN}}
+function estimateHTML(p){const E=estimate(p);return`<h4>Estimation de production</h4><div style="overflow-x:auto"><table><thead><tr><th>Séquence</th><th>Durée</th><th>Nature</th><th>Jours</th></tr></thead><tbody>${E.rows.map(r=>`<tr><td>${esc(r.s.name)}</td><td>${mmss(r.sec)}</td><td>${CX[r.cx]}</td><td>${fmt(r.d,1)}</td></tr>`).join('')}</tbody></table></div><p class="note">Environ <b>${fmt(E.tot,1)} jours</b> de création de contenu${isFinite(E.cost)?`, soit <b>${fmt(E.cost,0)} € HT</b>`:''}. Ordre de grandeur hors relevé 3D, calage sur site, son et lumière ; ratios réglables dans Ma bibliothèque.</p>`}
+function musicPrompt(p){const end=p.seq.length?p.seq[p.seq.length-1].t1:0;return`Instrumental score for a ${Math.round(end/60)}-minute night projection mapping show on a historic building. Mood: ${TONE_EN[P.art.tone]||'cinematic'}. Tempo around ${p.tempo||90} BPM. Musical direction (in French): ${p.music}. Structure: ${p.seq.map(s=>`${mmss(s.t0)}-${mmss(s.t1)} ${s.name}${s.cue?' ('+s.cue+')':''}`).join('; ')}. Clear builds and accents on each section change, cinematic, no vocals.`}
+function briefText(){const st=P.site,A=P.art,c=P.calc,p=A.proposal,th=themeOf(A.theme),tn=TONES[A.tone]||TONES.contemplatif,L=pnum(c.L),H=pnum(c.H),dur=Math.round(Math.max(1,num(st.duree,12))*60),lines=[],add=(k,v)=>{if(v)lines.push(`- ${k} : ${v}`)};
+ add('Projet',P.name);add('Lieu',[st.lieu,st.commune].filter(Boolean).join(', '));add('Type de prestation',TYPES[st.type]);add('Statut patrimonial',STATUT[st.statut]);add('Durée visée',`${mmss(dur)} (${dur} s)`);add('Public',PUBLICS[A.publicType]);add('Jauge',st.public);
+ if(L>0&&H>0)add('Surface projetée',`${fmt(L,1)} × ${fmt(H,1)} m, ${(MAT[c.materiau]||[''])[0]}`);
+ add('Style architectural',(A.styles||[]).map(k=>STYLES[k]&&STYLES[k][0]).filter(Boolean).join(', '));add('Éléments remarquables',(A.elements||[]).map(k=>ELEMENTS[k]&&ELEMENTS[k][0]).filter(Boolean).join(', '));
+ add('Thème souhaité',th.label);add('Tonalité',tn.label);add('Idées ou contraintes du client',A.idees);
+ if((A.refs||[]).length)add('Références visuelles',A.refs.map((r,i)=>`${i+1}. ${REFCATS[r.cat]||''}${r.caption?' – '+r.caption:''}`).join(' ; ')+' (images jointes si possible)');
+ let t=`Tu es directeur artistique de spectacles de mapping vidéo et de son et lumière sur le patrimoine. Propose une piste artistique pour ce projet.\n\nPROJET\n${lines.join('\n')}\n`;
+ if(p&&p.vig&&p.vig.length)t+=`\nPOINTS DE VIGILANCE\n${p.vig.map(v=>'- '+v).join('\n')}\n`;
+ if(p)t+=`\nPISTE ACTUELLE (à améliorer, pas à recopier)\n${p.title} : ${p.pitch}\n${p.seq.map(s=>`- ${mmss(s.t0)} ${s.name}${s.fx?' ['+s.fx.n+']':''}`).join('\n')}\n`;
+ t+=`\nRÉPONSE ATTENDUE\n1. En 5 lignes maximum, l’idée directrice et tes choix.\n2. Puis un seul bloc de code json, exactement à ce format :\n{"title":"…","pitch":"…","music":"…","rythme":"…","tempo":90,"palette":[["nom","#RRGGBB"]],"seq":[{"name":"…","txt":"…","dur":60,"fx":"…","cx":"archi","cue":"…"}]}\nRègles : 5 couleurs dans la palette ; "dur" en secondes, total proche de ${dur} s ; "fx" est un nom exact de cette liste, ou "" : ${fxNames().join(', ')} ; "cx" vaut "2d", "archi", "3d" ou "lum" ; "cue" décrit le repère musical de la séquence. Prévois une ouverture qui révèle l’architecture et un salut final de mise en valeur.`;return t}
+$('#briefBtn').onclick=async()=>{const t=briefText();$('#briefTxt').value=t;$('#briefBox').open=true;toast((await copyText(t,$('#briefTxt')))?'Brief copié : collez-le dans une conversation avec Claude':'Copiez le brief ci-dessous')};
+function applyPiste(j,source){if(!j||!Array.isArray(j.seq)||!j.seq.length){toast('La piste ne contient pas de séquences.');return false}
+ if(!confirmReplaceProp())return false;if(!P.art.proposal)generate();const p=P.art.proposal,str=v=>typeof v==='string'?v:'';
+ ['title','pitch','music','rythme'].forEach(k=>{if(str(j[k]))p[k]=j[k]});if(j.tempo)p.tempo=String(j.tempo);
+ if(Array.isArray(j.palette)){const pal=j.palette.filter(c=>Array.isArray(c)&&/^#[0-9a-f]{6}$/i.test(c[1])).map(c=>[String(c[0]||'Couleur'),c[1].toUpperCase()]);if(pal.length>=3){p.palette=pal;p.paletteSrc=source}}
+ const names=fxNames();let unk=0;p.seq=j.seq.map(x=>{const n=str(x.fx),ok=!!n&&names.includes(n);if(n&&!ok)unk++;const o={name:str(x.name)||'Séquence',txt:str(x.txt),dur:Math.max(1,Math.round(num(x.dur,60))),fx:ok?{n,...fxInfo(n)}:null,cue:str(x.cue)};o.cx=CX[x.cx]?x.cx:cxDefault(o);return o});
+ recalcSeq(p);p.edited=true;p.editedAt=Date.now();p.source=source;propEdit=false;scheduleSave();if(curTab==='artistique')renderProposal();toast('Piste importée'+(unk?` (${unk} effet(s) inconnu(s) laissé(s) vide(s))`:''));return true}
+$('#claudeImport').onclick=()=>{const raw=$('#claudeIn').value;const m=raw.match(/```(?:json)?\s*([\s\S]*?)```/);const cand=m?m[1]:raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1);let j;try{j=JSON.parse(cand)}catch(_){toast('Bloc JSON introuvable ou invalide dans la réponse.');return}
+ if(applyPiste(j,'Claude')){$('#claudeIn').value='';$('#propOut').scrollIntoView({behavior:'smooth'})}};
+function plancheHTML(){const p=P.art.proposal,st=P.site,eb=P.ebauches||[],img=s=>{const c=eb.filter(e=>e.label&&(e.label.includes(s.name)||(s.fx&&e.label===s.fx.n)));const e=c.find(x=>x.ia)||c[0];return e?e.data:''};
+ const cover=(eb.find(e=>e.ia)||eb[0]||{}).data||(P.photos.find(x=>x.zone==='facade')||P.photos[0]||{}).data||'',end=p.seq.length?p.seq[p.seq.length-1].t1:0;
+ return`<style>@page{size:A4 landscape;margin:12mm}</style><div class="pl"><section class="pl-cover"><div><p class="pl-k">${esc([st.lieu,st.commune].filter(Boolean).join(', '))}${st.client?' · '+esc(st.client):''}</p><h1>${esc(p.title)}</h1><p class="pl-pitch">${esc(p.pitch)}</p><div class="sw">${p.palette.map(([n,c])=>`<div><i style="background:${c}"></i><span>${esc(n)}</span></div>`).join('')}</div><p class="pl-k">${mmss(end)} · ${esc(TYPES[st.type]||'')}${p.tempo?' · '+esc(p.tempo)+' BPM':''}</p><p style="font-size:10pt">${esc(p.music)}</p></div>${cover?`<img src="${cover}" alt="">`:''}</section>
+ <section class="pl-grid">${p.seq.map(s=>{const im=img(s);return`<article>${im?`<img src="${im}" alt="">`:'<div class="pl-ph">Visuel à venir</div>'}<p class="pl-k">${mmss(s.t0)} – ${mmss(s.t1)}</p><h3>${esc(s.name)}</h3>${s.txt?`<p>${esc(s.txt)}</p>`:''}${s.fx?`<p class="pl-k">${esc(s.fx.n)}</p>`:''}</article>`}).join('')}</section>
+ ${(P.art.refs||[]).length?`<section class="pl-grid pl-refs"><h2>Références</h2>${P.art.refs.map(r=>`<article><img src="${r.data}" alt=""><p class="pl-k">${esc(REFCATS[r.cat]||'')}${r.caption?' · '+esc(r.caption):''}</p></article>`).join('')}</section>`:''}<p class="pl-foot">${esc(P.name)} · document de travail du ${new Date().toLocaleDateString('fr-FR')}</p></div>`}
+const FXBASE={trait:'Tracé des arêtes',joints:'Lumière dans les joints',pierres:'Pierre à pierre',deconstruction:'Déconstruction',matieres:'Matières',particules:'Particules',kaleido:'Kaléidoscope',fenetres:'Fenêtres éclairées',soleil:'Balayage de lumière',profondeur:'Fausse profondeur',elevation:'Faisceaux verticaux',calligraphie:'Texte calligraphié',temps:'Horloge',feu:'Feu',horizon:'Ciel étoilé',salut:'Mise en valeur',wash:'Lavis de couleurs'};
+function fillThemeSelect(){const s=$('[data-bind="art.theme"]');s.innerHTML=Object.entries(THEMES).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')+(LIB.themes.length?'<optgroup label="Mes thèmes">'+LIB.themes.map(t=>`<option value="my:${t.id}">${esc(t.label)}</option>`).join('')+'</optgroup>':'')}
+function curPalette(){const p=P.art.proposal;return p?p.palette:(P.art.palette||(TONES[P.art.tone]||TONES.contemplatif).palette)}
+function renderLib(){const sw=pal=>`<span class="minisw">${pal.map(c=>`<i style="background:${c[1]}"></i>`).join('')}</span>`;
+ $('#libThemes').innerHTML=LIB.themes.length?LIB.themes.map(t=>`<div class="librow"><span><b>${esc(t.label)}</b> <span class="note">${t.beats.length} séquence(s)</span></span><button class="btn sm danger" data-libdel="themes:${t.id}">Supprimer</button></div>`).join(''):'<p class="note">Aucun thème personnel. Retravaillez une piste puis « Enregistrer la piste comme thème ».</p>';
+ $('#libPals').innerHTML=LIB.palettes.length?LIB.palettes.map(t=>`<div class="librow"><span>${sw(t.palette)} <b>${esc(t.label)}</b></span><span class="row"><button class="btn sm" data-palapply="${t.id}">Appliquer</button><button class="btn sm danger" data-libdel="palettes:${t.id}">Supprimer</button></span></div>`).join(''):'<p class="note">Aucune palette personnelle.</p>';
+ $('#libFx').innerHTML=LIB.effects.length?LIB.effects.map(e=>`<div class="librow"><span><b>${esc(e.name)}</b> <span class="note">${esc(e.desc||'')} · rendu : ${esc(FXBASE[e.base]||e.base)}</span></span><button class="btn sm danger" data-libdel="effects:${e.id}">Supprimer</button></div>`).join(''):'<p class="note">Aucun effet personnel.</p>';
+ if(!$('#fxBase').options.length)$('#fxBase').innerHTML=Object.entries(FXBASE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+ $$('[data-rate]').forEach(i=>{if(document.activeElement===i)return;const v=LIB.rates[i.dataset.rate];i.value=v===''||v==null?'':String(v).replace('.',',')})}
+$('#libBox').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.id==='libSaveTheme'){const p=P.art.proposal;if(!p){toast('Générez ou importez d’abord une piste.');return}const label=prompt('Nom du thème :',p.title);if(!label)return;const core=p.seq.filter(s=>!['Ouverture','Final','Salut'].includes(s.name)).map(s=>s.name);LIB.themes.push({id:uid(),label,titles:[p.title],beats:core.length?core:p.seq.map(s=>s.name),music:p.music||''});await saveLib();renderLib();fillThemeSelect();bindAll($('#t-artistique'));toast('Thème enregistré dans la bibliothèque')}
+ if(b.id==='libSavePal'){const label=prompt('Nom de la palette :','Palette '+(LIB.palettes.length+1));if(!label)return;LIB.palettes.push({id:uid(),label,palette:curPalette().map(c=>[c[0],c[1]])});await saveLib();renderLib();toast('Palette enregistrée')}
+ if(b.id==='fxAdd'){const name=$('#fxName').value.trim();if(!name){toast('Donnez un nom à l’effet.');return}if(fxNames().includes(name)){toast('Ce nom existe déjà.');return}LIB.effects.push({id:uid(),name,desc:$('#fxDesc').value.trim(),base:$('#fxBase').value});$('#fxName').value='';$('#fxDesc').value='';await saveLib();renderLib();toast('Effet ajouté')}
+ if(b.id==='libExport'){download('bibliotheque-mapping.json',new Blob([JSON.stringify(LIB)],{type:'application/json'}));toast('Bibliothèque exportée : déposez-la dans le dossier Drive pour l’autre appareil.')}
+ if(b.dataset.palapply){const t=LIB.palettes.find(x=>x.id===b.dataset.palapply);P.art.palette=t.palette.map(c=>[c[0],c[1]]);P.art.paletteRef=null;P.art.paletteName=t.label;applyPalette();scheduleSave();toast('Palette « '+t.label+' » appliquée')}
+ if(b.dataset.libdel){const[k,id]=b.dataset.libdel.split(':');if(!confirm('Supprimer de la bibliothèque ?'))return;LIB[k]=LIB[k].filter(x=>x.id!==id);await saveLib();renderLib();fillThemeSelect();bindAll($('#t-artistique'))}});
+$('#libBox').addEventListener('input',e=>{const i=e.target.closest('[data-rate]');if(!i)return;e.stopPropagation();const k=i.dataset.rate,v=i.value.trim();LIB.rates[k]=v===''?(k==='tjm'?'':0):(isFinite(pnum(v))?pnum(v):LIB.rates[k]);saveLib();if(!propEdit)renderProposal()});
+$('#libImport').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const l=JSON.parse(await f.text());if(!l.themes||!l.palettes)throw 0;for(const k of['themes','palettes','effects']){const ids=new Set(LIB[k].map(x=>x.id));(l[k]||[]).forEach(x=>{if(!ids.has(x.id))LIB[k].push(x)})}if(l.rates)LIB.rates=Object.assign(LIB.rates,l.rates);await saveLib();renderLib();fillThemeSelect();bindAll($('#t-artistique'));toast('Bibliothèque fusionnée')}catch(_){toast('Fichier de bibliothèque non reconnu.')}};
 
 /* ================= rapport ================= */
 async function buildReport(withPhotos){const st=P.site,V=verdict(),A=alertsList(),v=computeVideo(),s=computeSon(),e=computeNrj(v),N=nightInfo();
@@ -1085,7 +1189,7 @@ $('#exportBtn').onclick=async()=>{await saveNow();const name=fileBase();download
 function fillSelects(){$$('select[data-opts]').forEach(s=>{const d=OPTS[s.dataset.opts];s.innerHTML=Object.entries(d).map(([k,v])=>`<option value="${k}">${esc(Array.isArray(v)?v[0]:v)}</option>`).join('')})}
 function applyTheme(t){document.documentElement.dataset.theme=t;$('#themeBtn').textContent=t==='day'?'Mode nuit':'Mode jour';$('meta[name=theme-color]').content=t==='day'?'#E4E2DC':'#0F1428';try{localStorage.setItem('rep-theme',t)}catch(_){}}
 $('#themeBtn').onclick=()=>applyTheme(document.documentElement.dataset.theme==='day'?'night':'day');
-(async()=>{let t='night';try{t=localStorage.getItem('rep-theme')||'night'}catch(_){}applyTheme(t);fillSelects();await DB.open();
+(async()=>{let t='night';try{t=localStorage.getItem('rep-theme')||'night'}catch(_){}applyTheme(t);fillSelects();await DB.open();try{const l=await DB.get('lib','main');if(l)LIB=Object.assign(defaultLib(),l,{rates:Object.assign(defaultLib().rates,l.rates||{})})}catch(_){}
  const sec=window.isSecureContext;$('#envInfo').textContent=sec?'Page sécurisée : caméra, capteurs, micro et GPS disponibles.':'Page ouverte hors https : photos, mesures sur photo, calculs, décision et pistes artistiques fonctionnent ; la visée caméra, les capteurs, le micro et le GPS ne seront pas accessibles.';
  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
  R.projets()})();
